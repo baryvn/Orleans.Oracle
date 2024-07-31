@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Orleans.Runtime" Version="8.2.0" />
+		<PackageReference Include="Oracle.EntityFrameworkCore" Version="8.23.50" />
+	</ItemGroup>
+
+	<PropertyGroup>
+		<PackageId>Orleans.Persistence.Oracle</PackageId>
+		<Authors>BARRY</Authors>
+		<Title>Microsoft Orleans Persistence Service for Oracle</Title>
+		<Description>Microsoft Orleans Persistence Service for Oracle</Description>
+		<PackageProjectUrl>https://github.com/baryvn/Orleans.Oracle</PackageProjectUrl>
+		<PackageIconUrl>https://raw.githubusercontent.com/baryvn/Orleans.Oracle/main/bary-favicon-color.png</PackageIconUrl>
+		<PackageTags>Orleans Cloud-Computing Actor-Model Actors Distributed-Systems Oracle C# .NET</PackageTags>
+		<PackageReleaseNotes></PackageReleaseNotes>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<RepositoryUrl>https://github.com/baryvn/Orleans.Oracle</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<IncludeSymbols>true</IncludeSymbols>
+		<IncludeSource>true</IncludeSource>
+		<Version>8.2.0</Version>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+	</PropertyGroup>
+</Project>
