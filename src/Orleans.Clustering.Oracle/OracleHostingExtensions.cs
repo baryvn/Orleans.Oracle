@@ -4,7 +4,6 @@ using Orleans.Runtime.Membership;
 using Orleans.Configuration;
 using Microsoft.EntityFrameworkCore;
 using Orleans.Clustering.Oracle;
-using Microsoft.Extensions.Options;
 
 namespace Orleans.Hosting
 {
@@ -36,7 +35,7 @@ namespace Orleans.Hosting
 
                         OracleClusteringSiloOptions option = new OracleClusteringSiloOptions ();
                         configureOptions.Invoke(option);
-                        services.AddDbContext<OraDbContext>(options => options.UseOracle(option.ConnectionString));
+                        services.AddDbContext<ClustringContext>(options => options.UseOracle(option.ConnectionString));
                     }
 
                     services.AddSingleton<IMembershipTable, OracleBasedMembershipTable>();
@@ -61,7 +60,7 @@ namespace Orleans.Hosting
             return builder.ConfigureServices(
                 services =>
                 {
-                    services.AddDbContext<OraDbContext>(options => options.UseOracle(oraOptions.ConnectionString));
+                    services.AddDbContext<ClustringContext>(options => options.UseOracle(oraOptions.ConnectionString));
                     services.AddSingleton<IMembershipTable, OracleBasedMembershipTable>();
                 });
         }
@@ -84,7 +83,7 @@ namespace Orleans.Hosting
             return builder.ConfigureServices(
                 services =>
                 {
-                    services.AddDbContext<OraDbContext>(options => options.UseOracle(oraOptions.ConnectionString));
+                    services.AddDbContext<ClustringContext>(options => options.UseOracle(oraOptions.ConnectionString));
                     services.AddSingleton<IGatewayListProvider, OracleGatewayListProvider>();
                 });
         }
@@ -114,7 +113,7 @@ namespace Orleans.Hosting
 
                         OracleGatewayListProviderOptions option = new OracleGatewayListProviderOptions();
                         configureOptions.Invoke(option);
-                        services.AddDbContext<OraDbContext>(options => options.UseOracle(option.ConnectionString));
+                        services.AddDbContext<ClustringContext>(options => options.UseOracle(option.ConnectionString));
                     }
                     services.AddSingleton<IGatewayListProvider, OracleGatewayListProvider>();
                 });

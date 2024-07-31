@@ -1,21 +1,21 @@
-﻿using Microsoft.Extensions.Options;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Orleans.Configuration;
 using Orleans.Persistence.Oracle.Providers;
 using Orleans.Runtime;
 using Orleans.Storage;
-using System.Runtime.Intrinsics.Arm;
 
 namespace Orleans.Persistence.Oracle.Storage;
 
-public class OracleGrainStorage : IGrainStorage, ILifecycleParticipant<ISiloLifecycle>
+public class OracleGrainStorage<T> : IGrainStorage, ILifecycleParticipant<ISiloLifecycle> where T : DbContext
 {
     private readonly string _storageName;
     private readonly OracleGrainStorageOptions _options;
     private readonly ClusterOptions _clusterOptions;
-    private readonly OraDbContext _context;
+    private readonly T _context;
     private readonly IList<Type> _tables;
 
-    public OracleGrainStorage(string storageName, OracleGrainStorageOptions options, IOptions<ClusterOptions> clusterOptions, OraDbContext context)
+    public OracleGrainStorage(string storageName, OracleGrainStorageOptions options, IOptions<ClusterOptions> clusterOptions, T context)
     {
         _options = options;
         _clusterOptions = clusterOptions.Value;

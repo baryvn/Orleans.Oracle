@@ -43,7 +43,7 @@ namespace Orleans.Runtime.Membership
                 {
                     using (var scope = _provider.CreateAsyncScope())
                     {
-                        var _context = scope.ServiceProvider.GetService<OraDbContext>();
+                        var _context = scope.ServiceProvider.GetService<ClustringContext>();
                         if (_context != null)
                         {
 
@@ -135,7 +135,7 @@ namespace Orleans.Runtime.Membership
                 TableVersion tableVersion = DefaultTableVersion;
                 using (var scope = _provider.CreateAsyncScope())
                 {
-                    var _context = scope.ServiceProvider.GetService<OraDbContext>();
+                    var _context = scope.ServiceProvider.GetService<ClustringContext>();
                     if (_context != null)
                     {
                         // Truy vấn dữ liệu TableVersion từ Oracle
@@ -196,7 +196,7 @@ namespace Orleans.Runtime.Membership
                 TableVersion tableVersion = DefaultTableVersion;
                 using (var scope = _provider.CreateAsyncScope())
                 {
-                    var _context = scope.ServiceProvider.GetService<OraDbContext>();
+                    var _context = scope.ServiceProvider.GetService<ClustringContext>();
                     if (_context != null)
                     {
                         // Query for TableVersion
@@ -285,7 +285,7 @@ namespace Orleans.Runtime.Membership
             {
                 using (var scope = _provider.CreateAsyncScope())
                 {
-                    var _context = scope.ServiceProvider.GetService<OraDbContext>();
+                    var _context = scope.ServiceProvider.GetService<ClustringContext>();
                     if (_context != null)
                     {
                         if (updateTableVersion)
@@ -361,7 +361,7 @@ namespace Orleans.Runtime.Membership
                 TableVersion tableVersion = DefaultTableVersion;
                 using (var scope = _provider.CreateAsyncScope())
                 {
-                    var _context = scope.ServiceProvider.GetService<OraDbContext>();
+                    var _context = scope.ServiceProvider.GetService<ClustringContext>();
                     if (_context != null)
                     {
                         // Lấy thông tin phiên bản bảng từ Oracle
@@ -410,7 +410,7 @@ namespace Orleans.Runtime.Membership
             {
                 using (var scope = _provider.CreateAsyncScope())
                 {
-                    var _context = scope.ServiceProvider.GetService<OraDbContext>();
+                    var _context = scope.ServiceProvider.GetService<ClustringContext>();
                     if (_context != null)
                     {
                         var deleteQuery = $"DELETE FROM {clusterId}_Members";
@@ -429,7 +429,7 @@ namespace Orleans.Runtime.Membership
             {
                 using (var scope = _provider.CreateAsyncScope())
                 {
-                    var _context = scope.ServiceProvider.GetService<OraDbContext>();
+                    var _context = scope.ServiceProvider.GetService<ClustringContext>();
                     if (_context != null)
                     {
                         var cleanupQuery = $@"  DELETE FROM {ClusterId}_Members 

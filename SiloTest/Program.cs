@@ -1,7 +1,9 @@
-﻿using Microsoft.Extensions.Hosting;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Orleans.Configuration;
 using Orleans.Persistence.Oracle.Hosting;
+using SiloTest;
 using System.Net;
 using TestGrain;
 
@@ -18,7 +20,12 @@ IHostBuilder builder = Host.CreateDefaultBuilder(args)
         {
             option.ConnectionString = "Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=oracle19c.intemi.vn)(PORT=1521))(CONNECT_DATA=(SID=orcl)));Persist Security Info=True;User Id=c##clusterapp;Password=intemi2019";
         });
-        silo.AddOracleGrainStorage("HelloGrain",option =>
+        silo.AddOracleGrainStorage<Test1Context>("Test1Context", option =>
+        {
+            option.ConnectionString = "Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=oracle19c.intemi.vn)(PORT=1521))(CONNECT_DATA=(SID=orcl)));Persist Security Info=True;User Id=c##cskh;Password=intemi2019";
+            option.Tables = new List<Type> { typeof(TestModel) };
+        });
+        silo.AddOracleGrainStorage<Test2Context>("Test2Context", option =>
         {
             option.ConnectionString = "Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=oracle19c.intemi.vn)(PORT=1521))(CONNECT_DATA=(SID=orcl)));Persist Security Info=True;User Id=c##cskh;Password=intemi2019";
             option.Tables = new List<Type> { typeof(TestModel) };

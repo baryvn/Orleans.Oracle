@@ -6,11 +6,11 @@ namespace TestGrain
     {
         private readonly ILogger _logger;
 
-        private readonly IPersistentState<TestModel> _policy;
-        public HelloGrain(ILogger<HelloGrain> logger, [PersistentState("policy", "HelloGrain")] IPersistentState<TestModel> policy)
+        private readonly IPersistentState<TestModel> _test;
+        public HelloGrain(ILogger<HelloGrain> logger, [PersistentState("test", "Test1Context")] IPersistentState<TestModel> test)
         {
             _logger = logger;
-            _policy = policy;
+            _test = test;
         }
 
         ValueTask<string> IHelloGrain.SayHello(string greeting)
@@ -26,16 +26,16 @@ namespace TestGrain
             """);
         }
 
-        public async Task<string> GetPolicy()
+        public async Task<string> GetMyColumn()
         {
-            await _policy.ReadStateAsync();
-            return _policy.State.MYCOLUM;
+            await _test.ReadStateAsync();
+            return _test.State.MYCOLUM;
         }
 
-        public async void SavePolicy()
+        public async void SaveColumn()
         {
-            _policy.State.MYCOLUM = "test";
-            await _policy.WriteStateAsync();
+            _test.State.MYCOLUM = "test";
+            await _test.WriteStateAsync();
         }
     }
 }

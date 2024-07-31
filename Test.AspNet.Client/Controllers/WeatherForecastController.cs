@@ -27,8 +27,8 @@ namespace Test.AspNet.Client.Controllers
         {
             var g = _client.GetGrain<IHelloGrain>(Guid.NewGuid());
             g.SayHello("hello");
-            g.SavePolicy();
-            var c = g.GetPolicy();
+            g.SaveColumn();
+            var c = g.GetMyColumn();
 
             return Enumerable.Range(1, 5).Select(index => new WeatherForecast
             {

@@ -3,8 +3,8 @@
     public interface IHelloGrain : IGrainWithGuidKey
     {
         ValueTask<string> SayHello(string greeting);
-        Task<string> GetPolicy();
+        Task<string> GetMyColumn();
 
-        void SavePolicy();
+        void SaveColumn();
     }
 }

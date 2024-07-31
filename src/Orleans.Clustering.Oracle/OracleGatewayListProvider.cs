@@ -42,7 +42,7 @@ namespace Orleans.Runtime.Membership
             IList<Uri> dataRs = new List<Uri>();
             using (var scope = _provider.CreateAsyncScope())
             {
-                var _context = scope.ServiceProvider.GetService<OraDbContext>();
+                var _context = scope.ServiceProvider.GetService<ClustringContext>();
                 if (_context != null)
                 {
                     var query = $"SELECT * FROM {ClusterId}_Members";

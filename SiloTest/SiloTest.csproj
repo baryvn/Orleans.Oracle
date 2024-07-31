@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Orleans.Server" Version="8.2.0" />
+    <PackageReference Include="Oracle.EntityFrameworkCore" Version="8.23.50" />
   </ItemGroup>
 
   <ItemGroup>

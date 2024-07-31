@@ -12,27 +12,27 @@ namespace Orleans.Persistence.Oracle.Hosting;
 
 public static class OracleSiloBuilderExtensions
 {
-    public static ISiloBuilder AddOracleGrainStorageAsDefault(this ISiloBuilder builder, Action<OracleGrainStorageOptions> options)
+    public static ISiloBuilder AddOracleGrainStorageAsDefault<T>(this ISiloBuilder builder, Action<OracleGrainStorageOptions> options) where T : DbContext
     {
-        return builder.AddOracleGrainStorage(ProviderConstants.DEFAULT_STORAGE_PROVIDER_NAME, options);
+        return builder.AddOracleGrainStorage<T>(ProviderConstants.DEFAULT_STORAGE_PROVIDER_NAME, options);
     }
 
-    public static ISiloBuilder AddOracleGrainStorage(this ISiloBuilder builder, string providerName, Action<OracleGrainStorageOptions> options)
+    public static ISiloBuilder AddOracleGrainStorage<T>(this ISiloBuilder builder, string providerName, Action<OracleGrainStorageOptions> options) where T : DbContext
     {
-        return builder.ConfigureServices(services => services.AddOracleGrainStorage(providerName, options));
+        return builder.ConfigureServices(services => services.AddOracleGrainStorage<T>(providerName, options));
     }
 
-    public static IServiceCollection AddOracleGrainStorage(this IServiceCollection services, string providerName, Action<OracleGrainStorageOptions> options)
+    public static IServiceCollection AddOracleGrainStorage<T>(this IServiceCollection services, string providerName, Action<OracleGrainStorageOptions> options) where T : DbContext
     {
         services.AddOptions<OracleGrainStorageOptions>(providerName).Configure(options);
 
         OracleGrainStorageOptions option = new OracleGrainStorageOptions { GrainStorageSerializer = null };
         options.Invoke(option);
 
-        services.AddDbContext<OraDbContext>(options => options.UseOracle(option.ConnectionString));
+        services.AddDbContextPool<T>(options => options.UseOracle(option.ConnectionString));
 
         services.AddTransient<IPostConfigureOptions<OracleGrainStorageOptions>, DefaultStorageProviderSerializerOptionsConfigurator<OracleGrainStorageOptions>>();
 
-        return services.AddGrainStorage(providerName, OracleGrainStorageFactory.Create);
+        return services.AddGrainStorage(providerName, OracleGrainStorageFactory<T>.Create);
     }
 }
