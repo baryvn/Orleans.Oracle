@@ -10,7 +10,7 @@ is a package that use Oracle as a backend for Orleans providers like Cluster Mem
 Nuget Packages are provided:
 - Orleans.Persistence.Oracle
 - Orleans.Clustering.Oracle
-  
+
 ## Silo
 ```
 
@@ -59,89 +59,6 @@ using IHost host = builder.Build();
 
 await host.RunAsync();
 ```
-## Use Persistence
-- BaseEntity is require 
-- property name is uppercase
-```
-namespace TestGrain
-{
-
-    [GenerateSerializer]
-    public class BaseEntity
-    {
-        [Description("CHAR(36)")]
-        [Id(0)]
-        [Key]
-        public string ID { get; set; } = Guid.NewGuid().ToString();
-        [Description("CHAR(36)")]
-        [Id(1)]
-        public string ETAG { get; set; } = string.Empty;
-
-    }
-}
-```
-### interface grain
-- [Description("TEST_TABLE")] is table name
--  [Description("VARCHAR2(50)")] is oracle data type
-```
-namespace TestGrain
-{
-    public interface IHelloGrain : IGrainWithGuidKey
-    {
-        ValueTask<string> SayHello(string greeting);
-        Task<string> GetMyColumn();
-
-        void SaveColumn();
-    }
-}
-
-
-```
-### impliment grain
-```
-namespace TestGrain
-{
-    public class HelloGrain : Grain, IHelloGrain
-    {
-        private readonly ILogger _logger;
-
-        private readonly IPersistentState<TestModel> _test;
-        public HelloGrain(ILogger<HelloGrain> logger, [PersistentState("policy", "Test1Context")] IPersistentState<TestModel> test)
-        {
-            _logger = logger;
-            _test = test;
-        }
-
-        ValueTask<string> IHelloGrain.SayHello(string greeting)
-        {
-            _logger.LogInformation("""
-            SayHello message received: greeting = "{Greeting}"
-            """,
-                greeting);
-
-            return ValueTask.FromResult($"""
-
-            Client said: "{greeting}", so HelloGrain says: Hello!
-            """);
-        }
-
-        public async Task<string> GetMyColumn()
-        {
-            await _test.ReadStateAsync();
-            return _test.State.MYCOLUM;
-        }
-
-        public async void SaveColumn()
-        {
-            _test.State.MYCOLUM = "test";
-            await _test.WriteStateAsync();
-        }
-    }
-}
-
-```
-
-
 ## Client 
 ```
 var builder = WebApplication.CreateBuilder(args);
@@ -160,3 +77,84 @@ builder.Host.UseOrleansClient(client =>
 });
 
 ```
+
+## Use Persistence
+- BaseEntity is require 
+- property name is uppercase 
+- [Description("TEST_TABLE")] is table name
+-  [Description("VARCHAR2(50)")] is oracle data type
+```
+[GenerateSerializer]
+public class BaseEntity
+{
+    [Description("CHAR(36)")]
+    [Id(0)]
+    [Key]
+    public string ID { get; set; } = Guid.NewGuid().ToString();
+    [Description("CHAR(36)")]
+    [Id(1)]
+    public string ETAG { get; set; } = string.Empty;
+
+}
+[Description("TEST_TABLE")]
+
+[GenerateSerializer]
+public class TestModel : BaseEntity
+{
+    [Description("VARCHAR2(50)")]
+    [Id(0)]
+    public string MYCOLUM { get; set; }
+}
+```
+
+### interface grain
+```
+public interface IHelloGrain : IGrainWithGuidKey
+{
+    ValueTask<string> SayHello(string greeting);
+    Task<string> GetMyColumn();
+
+    void SaveColumn();
+}
+```
+### impliment grain
+```
+public class HelloGrain : Grain, IHelloGrain
+{
+    private readonly ILogger _logger;
+
+    private readonly IPersistentState<TestModel> _test;
+    public HelloGrain(ILogger<HelloGrain> logger, [PersistentState("policy", "Test1Context")] IPersistentState<TestModel> test)
+    {
+        _logger = logger;
+        _test = test;
+    }
+
+    ValueTask<string> IHelloGrain.SayHello(string greeting)
+    {
+        _logger.LogInformation("""
+        SayHello message received: greeting = "{Greeting}"
+        """,
+            greeting);
+
+        return ValueTask.FromResult($"""
+
+        Client said: "{greeting}", so HelloGrain says: Hello!
+        """);
+    }
+
+    public async Task<string> GetMyColumn()
+    {
+        await _test.ReadStateAsync();
+        return _test.State.MYCOLUM;
+    }
+
+    public async void SaveColumn()
+    {
+        _test.State.MYCOLUM = "test";
+        await _test.WriteStateAsync();
+    }
+}
+
+```
+
