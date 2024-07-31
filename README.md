@@ -1,28 +1,15 @@
 
-# Orleans Rqlite Providers
+# Orleans Oracle Providers
 [Orleans](https://github.com/dotnet/orleans) is a framework that provides a straight-forward approach to building distributed high-scale computing applications, without the need to learn and apply complex concurrency or other scaling patterns. 
 
-[Rqlite](https://www.Rqlite.io/) rqlite is a distributed relational database that combines the simplicity of SQLite with the robustness of a fault-tolerant, highly available cluster. It's developer-friendly, its operation is straightforward, and its design ensures reliability with minimal complexity.
 
-
-## Why Orleans :sparkling_heart: Rqlite
-- Orleans is used to manage application logic, distribute actors to handle user requests, and distribute workload.
-- Rqlite is used to store and manage distributed data, ensuring consistency and high reliability of the system.
-
-This setup optimizes performance and scalability for small-scale distributed applications while ensuring data consistency and availability. Such a combination is particularly suitable for applications requiring high reliability and easy scalability, such as IoT applications, multiplayer games, or high-traffic web systems.
-
-
-## **Orleans.Rqlite** 
-is a package that use Rqlite as a backend for Orleans providers like Cluster Membership, Grain State storage and Reminders. 
+## **Orleans.Oracle** 
+is a package that use Oracle as a backend for Orleans providers like Cluster Membership, Grain State storage and Reminders. 
 
 # Installation 
 Nuget Packages are provided:
-- Orleans.Persistence.Rqlite
-- Orleans.Clustering.Rqlite
-
-## Coming soon
-- Orleans.Reminder.Rqlite
-- Authen username/password for Rqlite
+- Orleans.Persistence.Oracle
+- Orleans.Clustering.Oracle
   
 ## Silo
 ```
@@ -33,27 +20,25 @@ IHostBuilder builder = Host.CreateDefaultBuilder(args)
         {
             options.ClusterId = "DEV";
             options.ServiceId = "DEV";
-
         });
-        silo.UseRqliteClustering(option =>
+        silo.UseOracleClustering(option =>
         {
-            option.Uri = "http://localhost:4001";
+            option.ConnectionString = "";
         });
-        silo.UseRqliteReminder((RqliteReminderStorageOptions options) =>
+        silo.AddOracleGrainStorage("HelloGrain",option =>
         {
-
-        });
-        silo.AddRqliteGrainStorage("test", options =>
-        {
-            options.Uri = "http://localhost:4001";
+            option.ConnectionString = "";
+            option.Tables = new List<Type> { typeof(TestModel) };
         });
         silo.ConfigureLogging(logging => logging.AddConsole());
-
+        
         silo.ConfigureEndpoints(
             siloPort: 11111,
-            gatewayPort: 30001
+            gatewayPort: 30001,
+            advertisedIP: IPAddress.Parse("xxx.xxx.xxx.xxx"),
+            listenOnAnyHostAddress: true
             );
-
+        
         silo.Configure<ClusterMembershipOptions>(options =>
         {
             options.EnableIndirectProbes = true;
@@ -66,22 +51,103 @@ using IHost host = builder.Build();
 
 await host.RunAsync();
 ```
+## Use Persistence
+- BaseEntity is require 
+- property name is uppercase
+```
+namespace TestGrain
+{
+
+    [GenerateSerializer]
+    public class BaseEntity
+    {
+        [Description("CHAR(36)")]
+        [Id(0)]
+        [Key]
+        public string ID { get; set; } = Guid.NewGuid().ToString();
+        [Description("CHAR(36)")]
+        [Id(1)]
+        public string ETAG { get; set; } = string.Empty;
+
+    }
+}
+```
+### interface grain
+- [Description("TEST_TABLE")] is table name
+-  [Description("VARCHAR2(50)")] is oracle data type
+```
+namespace TestGrain
+{
+    public interface IHelloGrain : IGrainWithGuidKey
+    {
+        ValueTask<string> SayHello(string greeting);
+        Task<string> GetMyColumn();
+
+        void SaveColumn();
+    }
+}
+
+
+```
+### impliment grain
+```
+namespace TestGrain
+{
+    public class HelloGrain : Grain, IHelloGrain
+    {
+        private readonly ILogger _logger;
+
+        private readonly IPersistentState<TestModel> _test;
+        public HelloGrain(ILogger<HelloGrain> logger, [PersistentState("policy", "HelloGrain")] IPersistentState<TestModel> test)
+        {
+            _logger = logger;
+            _test = test;
+        }
+
+        ValueTask<string> IHelloGrain.SayHello(string greeting)
+        {
+            _logger.LogInformation("""
+            SayHello message received: greeting = "{Greeting}"
+            """,
+                greeting);
+
+            return ValueTask.FromResult($"""
+
+            Client said: "{greeting}", so HelloGrain says: Hello!
+            """);
+        }
+
+        public async Task<string> GetMyColumn()
+        {
+            await _test.ReadStateAsync();
+            return _test.State.MYCOLUM;
+        }
+
+        public async void SaveColumn()
+        {
+            _test.State.MYCOLUM = "test";
+            await _test.WriteStateAsync();
+        }
+    }
+}
+
+```
+
 
 ## Client 
 ```
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseOrleansClient(client =>
 {
-    client.UseRqliteClustering(option =>
-    {
-        option.Uri = "http://localhost:4001";
-    });
-
     client.Configure<ClusterOptions>(options =>
     {
         options.ClusterId = "DEV";
         options.ServiceId = "DEV";
 
+    });
+    client.UseOracleClustering(option =>
+    {
+        option.ConnectionString = "";
     });
 });
 
