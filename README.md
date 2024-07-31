@@ -72,72 +72,64 @@ namespace TestGrain
     }
 }
 ```
-### impliment grain
+### interface grain
 - [Description("TEST_TABLE")] is table name
 -  [Description("VARCHAR2(50)")] is oracle data type
-```
-namespace TestGrain
-{
-    [Description("TEST_TABLE")]
-
-    [GenerateSerializer]
-    public class TestModel : BaseEntity
-    {
-        [Description("VARCHAR2(50)")]
-        [Id(0)]
-        public string MYCOLUM { get; set; }
-    }
-}
-
-```
-### interface grain
 ```
 namespace TestGrain
 {
     public interface IHelloGrain : IGrainWithGuidKey
     {
         ValueTask<string> SayHello(string greeting);
-        Task<string> GetPolicy();
+        Task<string> GetMyColumn();
 
-        void SavePolicy();
+        void SaveColumn();
     }
 }
- public class HelloGrain : Grain, IHelloGrain
- {
-     private readonly ILogger _logger;
 
-     private readonly IPersistentState<TestModel> _policy;
-     public HelloGrain(ILogger<HelloGrain> logger, [PersistentState("policy", "HelloGrain")] IPersistentState<TestModel> policy)
-     {
-         _logger = logger;
-         _policy = policy;
-     }
 
-     ValueTask<string> IHelloGrain.SayHello(string greeting)
-     {
-         _logger.LogInformation("""
-         SayHello message received: greeting = "{Greeting}"
-         """,
-             greeting);
+```
+### impliment grain
+```
+namespace TestGrain
+{
+    public class HelloGrain : Grain, IHelloGrain
+    {
+        private readonly ILogger _logger;
 
-         return ValueTask.FromResult($"""
+        private readonly IPersistentState<TestModel> _test;
+        public HelloGrain(ILogger<HelloGrain> logger, [PersistentState("policy", "HelloGrain")] IPersistentState<TestModel> test)
+        {
+            _logger = logger;
+            _test = test;
+        }
 
-         Client said: "{greeting}", so HelloGrain says: Hello!
-         """);
-     }
+        ValueTask<string> IHelloGrain.SayHello(string greeting)
+        {
+            _logger.LogInformation("""
+            SayHello message received: greeting = "{Greeting}"
+            """,
+                greeting);
 
-     public async Task<string> GetPolicy()
-     {
-         await _policy.ReadStateAsync();
-         return _policy.State.MYCOLUM;
-     }
+            return ValueTask.FromResult($"""
 
-     public async void SavePolicy()
-     {
-         _policy.State.MYCOLUM = "test";
-         await _policy.WriteStateAsync();
-     }
- }
+            Client said: "{greeting}", so HelloGrain says: Hello!
+            """);
+        }
+
+        public async Task<string> GetMyColumn()
+        {
+            await _test.ReadStateAsync();
+            return _test.State.MYCOLUM;
+        }
+
+        public async void SaveColumn()
+        {
+            _test.State.MYCOLUM = "test";
+            await _test.WriteStateAsync();
+        }
+    }
+}
 
 ```
 
