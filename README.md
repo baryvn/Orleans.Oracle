@@ -4,7 +4,7 @@
 
 
 ## **Orleans.Oracle** 
-is a package that use Oracle as a backend for Orleans providers like Cluster Membership, Grain State storage and Reminders. 
+is a package that use Oracle as a backend for Orleans providers like Cluster Membership, Grain State storage. 
 
 # Installation 
 Nuget Packages are provided:
@@ -13,6 +13,7 @@ Nuget Packages are provided:
   
 ## Silo
 ```
+
 IHostBuilder builder = Host.CreateDefaultBuilder(args)
     .UseOrleans(silo =>
     {
@@ -20,25 +21,31 @@ IHostBuilder builder = Host.CreateDefaultBuilder(args)
         {
             options.ClusterId = "DEV";
             options.ServiceId = "DEV";
+
         });
         silo.UseOracleClustering(option =>
         {
-            option.ConnectionString = "";
+            option.ConnectionString = "your-connection-string";
         });
-        silo.AddOracleGrainStorage("HelloGrain",option =>
+        silo.AddOracleGrainStorage<Test1Context>("Test1Context", option =>
         {
-            option.ConnectionString = "";
+            option.ConnectionString = "your-connection-string";
+            option.Tables = new List<Type> { typeof(TestModel) };
+        });
+        silo.AddOracleGrainStorage<Test2Context>("Test2Context", option =>
+        {
+            option.ConnectionString = "your-connection-string";
             option.Tables = new List<Type> { typeof(TestModel) };
         });
         silo.ConfigureLogging(logging => logging.AddConsole());
-        
+
         silo.ConfigureEndpoints(
             siloPort: 11111,
             gatewayPort: 30001,
-            advertisedIP: IPAddress.Parse("xxx.xxx.xxx.xxx"),
+            advertisedIP: IPAddress.Parse("192.168.68.41"),
             listenOnAnyHostAddress: true
             );
-        
+
         silo.Configure<ClusterMembershipOptions>(options =>
         {
             options.EnableIndirectProbes = true;
@@ -46,6 +53,7 @@ IHostBuilder builder = Host.CreateDefaultBuilder(args)
         });
     })
     .UseConsoleLifetime();
+
 
 using IHost host = builder.Build();
 
@@ -98,7 +106,7 @@ namespace TestGrain
         private readonly ILogger _logger;
 
         private readonly IPersistentState<TestModel> _test;
-        public HelloGrain(ILogger<HelloGrain> logger, [PersistentState("policy", "HelloGrain")] IPersistentState<TestModel> test)
+        public HelloGrain(ILogger<HelloGrain> logger, [PersistentState("policy", "Test1Context")] IPersistentState<TestModel> test)
         {
             _logger = logger;
             _test = test;
