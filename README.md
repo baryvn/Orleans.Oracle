@@ -35,7 +35,7 @@ IHostBuilder builder = Host.CreateDefaultBuilder(args)
         silo.ConfigureEndpoints(
             siloPort: 11111,
             gatewayPort: 30001,
-            advertisedIP: IPAddress.Parse("192.168.68.41"),
+            advertisedIP: IPAddress.Parse("xxx.xxx.xxx.xxx"),
             listenOnAnyHostAddress: true
             );
         
