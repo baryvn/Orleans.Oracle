@@ -1,21 +1,26 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.Extensions.Options;
 using Orleans.Configuration;
 using Orleans.Persistence.Oracle.Providers;
+using Orleans.Persistence.Oracle.States;
 using Orleans.Runtime;
+using Orleans.Serialization.WireProtocol;
 using Orleans.Storage;
+using System.Reflection;
 
 namespace Orleans.Persistence.Oracle.Storage;
 
-public class OracleGrainStorage<T> : IGrainStorage, ILifecycleParticipant<ISiloLifecycle> where T : DbContext
+public class OracleGrainStorage<TContext> : IGrainStorage, ILifecycleParticipant<ISiloLifecycle> where TContext : DbContext
 {
     private readonly string _storageName;
     private readonly OracleGrainStorageOptions _options;
     private readonly ClusterOptions _clusterOptions;
-    private readonly T _context;
+    private readonly TContext _context;
     private readonly IList<Type> _tables;
 
-    public OracleGrainStorage(string storageName, OracleGrainStorageOptions options, IOptions<ClusterOptions> clusterOptions, T context)
+    public OracleGrainStorage(string storageName, OracleGrainStorageOptions options, IOptions<ClusterOptions> clusterOptions, TContext context)
     {
         _options = options;
         _clusterOptions = clusterOptions.Value;
@@ -40,90 +45,90 @@ public class OracleGrainStorage<T> : IGrainStorage, ILifecycleParticipant<ISiloL
     }
     public async Task ClearStateAsync<T>(string stateName, GrainId grainId, IGrainState<T> grainState)
     {
-        var result = await _context.GetEntityByIdAsync<T>(grainId.GetGuidKey().ToString());
-        if (result != null)
+        var type = typeof(T);
+        var itemsPop = type.GetProperty("Items");
+        if (itemsPop != null)
         {
-
-
-            var type = typeof(T);
-            var etagPop = type.GetProperties().FirstOrDefault(p => p.Name == "ETAG");
-            if (etagPop != null)
+            var itemType = itemsPop.PropertyType.GetGenericArguments().FirstOrDefault();
+            if (itemType != null)
             {
-                var etag = etagPop.GetValue(result);
-                if (etag == null || !etag.Equals(grainState.ETag))
+                var result = await _context.GetEntityByIdAsync(grainId.ToString(), itemType);
+                if (result != null && result.Any())
                 {
-                    throw new InconsistentStateException("ETag mismatch.");
+                    await _context.DeleteEntityAsync(grainId.ToString(), itemType);
+                    grainState.State = Activator.CreateInstance<T>()!;
+                    grainState.RecordExists = false;
                 }
-
-                await _context.DeleteEntityAsync<T>(grainId.GetGuidKey().ToString());
-                grainState.ETag = null;
-                grainState.State = Activator.CreateInstance<T>()!;
-                grainState.RecordExists = false;
             }
         }
     }
 
     public async Task ReadStateAsync<T>(string stateName, GrainId grainId, IGrainState<T> grainState)
     {
-
-        var result = await _context.GetEntityByIdAsync<T>(grainId.GetGuidKey().ToString());
-        if (result != null)
+        var type = typeof(T);
+        var itemsPop = type.GetProperty("Items");
+        if (itemsPop != null)
         {
-            var type = typeof(T);
-            var etagPop = type.GetProperties().FirstOrDefault(p => p.Name == "ETAG");
-            if (etagPop != null)
+            var itemType = itemsPop.PropertyType.GetGenericArguments().FirstOrDefault();
+            if (itemType != null)
             {
-                var etag = etagPop.GetValue(result);
-                if (etag == null || !etag.Equals(grainState.ETag))
+                var result = await _context.GetEntityByIdAsync(grainId.ToString(), itemType);
+                if (result != null)
                 {
-                    throw new InconsistentStateException("ETag mismatch.");
+                    Type listType = typeof(List<>).MakeGenericType(itemType);
+                    MethodInfo addMethod = listType.GetMethod("Add");
+
+                    var listInstance = Activator.CreateInstance(listType);
+                    foreach (var item in result)
+                    {
+                        var itemVal = Extentions.ConvertToTestModel(item, itemType);
+                        addMethod.Invoke(listInstance, new object[] { itemVal });
+                        
+                    }
+                    var state = Activator.CreateInstance<T>();
+                    itemsPop.SetValue(state, listInstance);
+                    grainState.State = state;
+                    grainState.RecordExists = true;
                 }
-                grainState.ETag = etag.ToString();
+                else
+                {
+                    grainState.State = Activator.CreateInstance<T>()!;
+                }
             }
-            grainState.State = result != null ? result : Activator.CreateInstance<T>();
-            grainState.RecordExists = true;
+            else
+            {
+                grainState.State = Activator.CreateInstance<T>()!;
+            }
+
         }
-        grainState.State = Activator.CreateInstance<T>()!;
+        else
+        {
+            grainState.State = Activator.CreateInstance<T>()!;
+        }
         return;
     }
 
     public async Task WriteStateAsync<T>(string stateName, GrainId grainId, IGrainState<T> grainState)
     {
-        var result = await _context.GetEntityByIdAsync<T>(grainId.GetGuidKey().ToString());
-        if (result != null)
+        var type = typeof(T);
+        var itemsPop = type.GetProperty("Items");
+        if (itemsPop != null)
         {
-            var type = typeof(T);
-            var etagPop = type.GetProperties().FirstOrDefault(p => p.Name == "ETAG");
-            if (etagPop != null)
+            var itemType = itemsPop.PropertyType.GetGenericArguments().FirstOrDefault();
+            if (itemType != null)
             {
-                var etag = etagPop.GetValue(result);
-                if (etag == null || !etag.Equals(grainState.ETag))
+                var items = itemsPop.GetValue(grainState.State) as IEnumerable<object>;
+                if (items != null)
                 {
-                    throw new InconsistentStateException("ETag mismatch.");
+                    await _context.InsertOrUpdateAsync(grainId.ToString(), items, itemType);
                 }
-                grainState.ETag = Guid.NewGuid().ToString();
-                etagPop.SetValue(result, grainState.ETag);
+                else
+                {
+                    itemsPop.SetValue(grainState.State, new List<object>());
+                }
             }
-            await _context.UpdateEntityAsync<T>(result);
-        }
-        else
-        {
-            result = Activator.CreateInstance<T>();
-            var type = typeof(T);
-            var key = grainId.GetGuidKey().ToString();
-            var etagPop = type.GetProperties().FirstOrDefault(p => p.Name == "ETAG");
-            if (etagPop != null)
-            {
-                grainState.ETag = key;
-                etagPop.SetValue(result, grainState.ETag);
-            }
-            var idPop = type.GetProperties().FirstOrDefault(p => p.Name == "ID");
-            if (idPop != null)
-            {
-                idPop.SetValue(result,key);
-            }
-            await _context.InsertEntityAsync<T>(grainState.State);
         }
         grainState.RecordExists = true;
     }
+
 }

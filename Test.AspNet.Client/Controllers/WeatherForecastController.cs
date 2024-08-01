@@ -23,12 +23,16 @@ namespace Test.AspNet.Client.Controllers
         }
 
         [HttpGet(Name = "GetWeatherForecast")]
-        public IEnumerable<WeatherForecast> Get()
+        public async Task<IEnumerable<WeatherForecast>> Get(string name)
         {
             var g = _client.GetGrain<IHelloGrain>(Guid.NewGuid());
-            g.SayHello("hello");
-            g.SaveColumn();
-            var c = g.GetMyColumn();
+            await g.SayHello("hello");
+            await g.AddItem(new TestModel
+            {
+                MYCOLUM = name,
+                ID = g.GetGrainId().ToString()
+            });
+            var c = await g.GetCount();
 
             return Enumerable.Range(1, 5).Select(index => new WeatherForecast
             {

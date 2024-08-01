@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Oracle.ManagedDataAccess.Client;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using System.Data;
+using System.Dynamic;
 using System.Reflection;
 using System.Security.Principal;
 namespace Orleans.Persistence.Oracle
@@ -40,78 +42,79 @@ namespace Orleans.Persistence.Oracle
 
             throw new InvalidOperationException($"No data type of column {property.Name}");
         }
-        private static string GetSqlTypeFromAttributeForeCreate(PropertyInfo property)
-        {
-            var descriptionAttribute = property.GetCustomAttributes(typeof(DescriptionAttribute), false)
-                                               .FirstOrDefault() as DescriptionAttribute;
-            if (descriptionAttribute != null)
-            {
-                bool hasKeyAttribute = property.GetCustomAttributes(typeof(KeyAttribute), false).Any();
-
-                if (hasKeyAttribute)
-                {
-                    return $"{descriptionAttribute.Description} PRIMARY KEY";
-                }
-                return descriptionAttribute.Description;
-            }
-            throw new InvalidOperationException($"No data type of column {property.Name}");
-        }
         public static async Task CreateTableIfNotExistsAsync(this DbContext context, Type type)
         {
             var tableName = type.GetTableName();
             var properties = type.GetProperties();
-            var columns = properties.Select(p => $"{p.Name} {GetSqlTypeFromAttributeForeCreate(p)}").ToArray();
+            var columns = properties.Select(p => $"{p.Name} {GetSqlTypeFromAttribute(p)}").ToArray();
             var columnsJoined = string.Join(", ", columns);
             var sql = $"BEGIN EXECUTE IMMEDIATE 'CREATE TABLE {tableName} ({columnsJoined})'; EXCEPTION WHEN OTHERS THEN IF SQLCODE != -955 THEN RAISE; END IF; END;";
             await context.Database.ExecuteSqlRawAsync(sql);
         }
-        public static async Task InsertEntityAsync<T>(this DbContext context, T entity)
+        public static async Task InsertOrUpdateAsync(this DbContext context, string id, IEnumerable<object> entitys, Type type)
         {
-            var type = typeof(T);
             var tableName = type.GetTableName();
             var properties = type.GetProperties();
             var columns = string.Join(", ", properties.Select(p => p.Name));
             var values = string.Join(", ", properties.Select(p => $":{p.Name}"));
-            var sql = $"INSERT INTO {tableName} ({columns}) VALUES ({values})";
-
-            var parameters = properties.Select(p => new OracleParameter($"{p.Name}", p.GetValue(entity) ?? DBNull.Value)).ToArray();
-
-            await context.Database.ExecuteSqlRawAsync(sql, parameters);
+            var key = type.GetKey();
+            if (string.IsNullOrEmpty(key)) throw new InvalidOperationException("No key column found.");
+            var clearSql = $"DELETE FROM {tableName} WHERE {key} = :{key}";
+            var insertsql = $"INSERT INTO {tableName} ({columns}) VALUES ({values})";
+            using (var trans = context.Database.BeginTransaction())
+            {
+                try
+                {
+                    var clearParas = new OracleParameter(type.GetKey(), id);
+                    await context.Database.ExecuteSqlRawAsync(clearSql, clearParas);
+                    foreach (var entity in entitys)
+                    {
+                        var insertParas = properties.Select(p => new OracleParameter($"{p.Name}", p.GetValue(entity) ?? DBNull.Value)).ToArray();
+                        await context.Database.ExecuteSqlRawAsync(insertsql, insertParas);
+                    }
+                    trans.Commit();
+                }
+                catch
+                {
+                    trans.Rollback();
+                }
+            }
         }
-        public static async Task UpdateEntityAsync<T>(this DbContext context, T entity)
+        public static async Task<List<dynamic>> GetEntityByIdAsync(this DbContext context, string key, Type type)
         {
-            var type = typeof(T);
-            var tableName = type.GetTableName();
-            var properties = type.GetProperties();
-            var keyProperty = properties.FirstOrDefault(p => p.Name.ToLower() == type.GetKey());
-            if (keyProperty == null) throw new InvalidOperationException("No key column found.");
-
-            var setClause = string.Join(", ", properties.Where(p => p != keyProperty).Select(p => $"{p.Name} = :{p.Name}"));
-            var sql = $"UPDATE {tableName} SET {setClause} WHERE {keyProperty.Name} = :{keyProperty.Name}";
-
-            var parameters = properties.Select(p => new OracleParameter($"{p.Name}", p.GetValue(entity) ?? DBNull.Value)).ToArray();
-
-            await context.Database.ExecuteSqlRawAsync(sql, parameters);
-        }
-        public static async Task<T?> GetEntityByIdAsync<T>(this DbContext context, string key)
-        {
-            var type = typeof(T);
             var tableName = type.GetTableName();
             var keyProperty = type.GetProperties().FirstOrDefault(p => p.Name == type.GetKey());
             if (keyProperty == null) throw new InvalidOperationException("No key column found.");
 
             var sql = $"SELECT * FROM {tableName} WHERE {keyProperty.Name} = :{type.GetKey()}";
             var parameter = new OracleParameter(type.GetKey(), key);
-            var rs = context.Database.SqlQueryRaw<T>(sql, parameter);
-            if (rs != null && rs.Count() != 0)
+
+            var results = new List<dynamic>();
+            using (var command = context.Database.GetDbConnection().CreateCommand())
             {
-                return await rs.FirstOrDefaultAsync();
+                command.CommandText = sql;
+                command.Parameters.Clear();
+                command.Parameters.Add(parameter);
+                if (command.Connection.State != ConnectionState.Open)
+                    command.Connection.Open();
+
+                using (var reader = await command.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        var expando = new ExpandoObject() as IDictionary<string, object>;
+                        for (var i = 0; i < reader.FieldCount; i++)
+                        {
+                            expando[reader.GetName(i)] = reader.GetValue(i);
+                        }
+                        results.Add(expando);
+                    }
+                }
             }
-            return default(T?);
+            return results;
         }
-        public static async Task DeleteEntityAsync<T>(this DbContext context, string id)
+        public static async Task DeleteEntityAsync(this DbContext context, string id, Type type)
         {
-            var type = typeof(T);
             var tableName = type.GetTableName();
             var keyProperty = type.GetProperties().FirstOrDefault(p => p.Name.ToLower() == type.GetKey());
             if (keyProperty == null) throw new InvalidOperationException("No key column found.");
@@ -120,6 +123,51 @@ namespace Orleans.Persistence.Oracle
             var parameter = new OracleParameter(type.GetKey(), id);
 
             await context.Database.ExecuteSqlRawAsync(sql, parameter);
+        }
+        public static dynamic ConvertToDynamic(this object? obj)
+        {
+            if(obj!= null)
+            {
+                IDictionary<string, object> expando = new ExpandoObject();
+                foreach (var property in obj.GetType().GetProperties())
+                {
+                    expando.Add(property.Name, property.GetValue(obj));
+                }
+                return expando as dynamic;
+            }
+            throw new InvalidOperationException("Object can't null!");
+        }
+        public static object? ConvertToTestModel(dynamic dynamicObj, Type type)
+        {
+            // Create an instance of the specified type
+            var model = Activator.CreateInstance(type);
+            if (model != null)
+            {
+                // Get the properties of the model
+                foreach (var property in model.GetType().GetProperties())
+                {
+                    // Check if the dynamic object contains the property name
+                    if (((IDictionary<string, object>)dynamicObj).ContainsKey(property.Name))
+                    {
+                        // Get the value from the dynamic object
+                        var value = ((IDictionary<string, object>)dynamicObj)[property.Name];
+
+                        // Convert the value to the type of the property
+                        var targetType = property.PropertyType;
+                        object convertedValue = Convert.ChangeType(value, targetType);
+
+                        // Set the value of the property
+                        property.SetValue(model, convertedValue);
+                    }
+                    else
+                    {
+                        // Handle missing property (optional)
+                        Console.WriteLine($"Property {property.Name} not found in dynamic object.");
+                    }
+                }
+            }
+
+            return model;
         }
     }
 }

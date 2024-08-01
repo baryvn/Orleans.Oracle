@@ -6,12 +6,12 @@ using Orleans.Persistence.Oracle.Providers;
 
 namespace Orleans.Persistence.Oracle.Storage;
 
-public static class OracleGrainStorageFactory<T> where T : DbContext
+public static class OracleGrainStorageFactory<TContext> where TContext : DbContext
 {
-    public static OracleGrainStorage<T> Create(IServiceProvider service, string name)
+    public static OracleGrainStorage<TContext> Create(IServiceProvider service, string name)
     {
         var options = service.GetRequiredService<IOptionsMonitor<OracleGrainStorageOptions>>();
 
-        return ActivatorUtilities.CreateInstance<OracleGrainStorage<T>>(service, name, options.Get(name), service.GetProviderClusterOptions(name));
+        return ActivatorUtilities.CreateInstance<OracleGrainStorage<TContext>>(service, name, options.Get(name), service.GetProviderClusterOptions(name));
     }
 }

@@ -5,17 +5,8 @@
 		<Nullable>enable</Nullable>
 	</PropertyGroup>
 
-	<ItemGroup>
-		<PackageReference Include="Microsoft.Orleans.Runtime" Version="8.2.0" />
-		<PackageReference Include="Oracle.EntityFrameworkCore" Version="8.23.50" />
-	</ItemGroup>
-
-	<ItemGroup>
-	  <ProjectReference Include="..\Orleans.Persistence.Oracle.States\Orleans.Persistence.Oracle.States.csproj" />
-	</ItemGroup>
-
 	<PropertyGroup>
-		<PackageId>Orleans.Persistence.Oracle</PackageId>
+		<PackageId>Orleans.Persistence.Oracle.States</PackageId>
 		<Authors>BARRY</Authors>
 		<Title>Microsoft Orleans Persistence Service for Oracle</Title>
 		<Description>Microsoft Orleans Persistence Service for Oracle</Description>
@@ -28,7 +19,11 @@
 		<RepositoryType>git</RepositoryType>
 		<IncludeSymbols>true</IncludeSymbols>
 		<IncludeSource>true</IncludeSource>
-		<Version>8.2.0.1</Version>
+		<Version>8.2.0</Version>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 	</PropertyGroup>
+
+	<ItemGroup>
+	  <PackageReference Include="Microsoft.Orleans.Core.Abstractions" Version="8.2.0" />
+	</ItemGroup>
 </Project>

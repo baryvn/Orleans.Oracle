@@ -3,8 +3,8 @@
     public interface IHelloGrain : IGrainWithGuidKey
     {
         ValueTask<string> SayHello(string greeting);
-        Task<string> GetMyColumn();
+        Task<string> GetCount();
 
-        void SaveColumn();
+        Task AddItem(TestModel model);
     }
 }

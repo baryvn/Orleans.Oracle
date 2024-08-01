@@ -15,6 +15,7 @@ namespace Orleans.Runtime.Membership
         private readonly string ClusterId;
         private readonly TimeSpan _maxStaleness;
         private readonly IServiceProvider _provider;
+        public bool IsInitialized { get; private set; }
 
         public OracleGatewayListProvider(
             ILogger<OracleGatewayListProvider> logger,
@@ -39,12 +40,40 @@ namespace Orleans.Runtime.Membership
         /// </summary>
         public async Task<IList<Uri>> GetGateways()
         {
+
+
+
             IList<Uri> dataRs = new List<Uri>();
             using (var scope = _provider.CreateAsyncScope())
             {
                 var _context = scope.ServiceProvider.GetService<ClustringContext>();
                 if (_context != null)
                 {
+                    if (!IsInitialized)
+                    {
+                        // Thực hiện các lệnh SQL để tạo bảng
+                        await _context.Database.ExecuteSqlRawAsync($@"
+                                                                BEGIN
+                                                                    EXECUTE IMMEDIATE 'CREATE TABLE {ClusterId}_Members (
+                                                                        SiloAddress VARCHAR2(255) PRIMARY KEY, 
+                                                                        Data CLOB,
+                                                                        IAmAliveTime TIMESTAMP,
+                                                                        Status INTEGER
+                                                                    )';
+                                                                EXCEPTION
+                                                                    WHEN OTHERS THEN
+                                                                        IF SQLCODE = -955 THEN
+                                                                            -- Table already exists, ignore the error
+                                                                            NULL;
+                                                                        ELSE
+                                                                            RAISE;
+                                                                        END IF;
+                                                                END;
+                                                            ");
+                        IsInitialized = true;
+                    }
+
+
                     var query = $"SELECT * FROM {ClusterId}_Members";
                     var result = await _context.Database.SqlQueryRaw<MemberModel>(query).ToListAsync();
                     if (result.Any())

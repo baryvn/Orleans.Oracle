@@ -1,13 +1,13 @@
 ﻿using Microsoft.Extensions.Logging;
-using Orleans.Runtime;
+using Orleans.Persistence.Oracle.States;
 namespace TestGrain
 {
     public class HelloGrain : Grain, IHelloGrain
     {
         private readonly ILogger _logger;
 
-        private readonly IPersistentState<TestModel> _test;
-        public HelloGrain(ILogger<HelloGrain> logger, [PersistentState("test", "Test1Context")] IPersistentState<TestModel> test)
+        private readonly IPersistentState<BaseState<TestModel>> _test;
+        public HelloGrain(ILogger<HelloGrain> logger, [PersistentState("test", "Test1Context")] IPersistentState<BaseState<TestModel>> test)
         {
             _logger = logger;
             _test = test;
@@ -25,17 +25,18 @@ namespace TestGrain
             Client said: "{greeting}", so HelloGrain says: Hello!
             """);
         }
-
-        public async Task<string> GetMyColumn()
+        public async Task<string> GetCount()
         {
             await _test.ReadStateAsync();
-            return _test.State.MYCOLUM;
+            return _test.State.Items.Count.ToString();
         }
 
-        public async void SaveColumn()
+        public async Task AddItem(TestModel model)
         {
-            _test.State.MYCOLUM = "test";
+            _test.State.Items = [model,];
             await _test.WriteStateAsync();
         }
+
+
     }
 }
