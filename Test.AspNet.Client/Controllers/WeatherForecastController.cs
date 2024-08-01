@@ -26,7 +26,6 @@ namespace Test.AspNet.Client.Controllers
         public async Task<IEnumerable<WeatherForecast>> Get(string name)
         {
             var g = _client.GetGrain<IHelloGrain>(Guid.NewGuid());
-            await g.SayHello("hello");
             await g.AddItem(new TestModel
             {
                 MYCOLUM = name,
