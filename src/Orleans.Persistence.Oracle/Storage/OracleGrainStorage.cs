@@ -1,12 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.Extensions.Options;
 using Orleans.Configuration;
 using Orleans.Persistence.Oracle.Providers;
-using Orleans.Persistence.Oracle.States;
 using Orleans.Runtime;
-using Orleans.Serialization.WireProtocol;
 using Orleans.Storage;
 using System.Reflection;
 

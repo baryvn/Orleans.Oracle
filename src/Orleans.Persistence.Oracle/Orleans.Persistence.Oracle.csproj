@@ -10,10 +10,6 @@
 		<PackageReference Include="Oracle.EntityFrameworkCore" Version="8.23.50" />
 	</ItemGroup>
 
-	<ItemGroup>
-	  <ProjectReference Include="..\Orleans.Persistence.Oracle.States\Orleans.Persistence.Oracle.States.csproj" />
-	</ItemGroup>
-
 	<PropertyGroup>
 		<PackageId>Orleans.Persistence.Oracle</PackageId>
 		<Authors>BARRY</Authors>
@@ -28,7 +24,7 @@
 		<RepositoryType>git</RepositoryType>
 		<IncludeSymbols>true</IncludeSymbols>
 		<IncludeSource>true</IncludeSource>
-		<Version>8.2.0.1</Version>
+		<Version>8.2.0.2</Version>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 	</PropertyGroup>
 </Project>
