@@ -9,6 +9,7 @@ is a package that use Oracle as a backend for Orleans providers like Cluster Mem
 # Installation 
 Nuget Packages are provided:
 - Orleans.Persistence.Oracle
+- Orleans.Persistence.Oracle.State
 - Orleans.Clustering.Oracle
 
 ## Silo
@@ -54,7 +55,6 @@ IHostBuilder builder = Host.CreateDefaultBuilder(args)
     })
     .UseConsoleLifetime();
 
-
 using IHost host = builder.Build();
 
 await host.RunAsync();
@@ -83,21 +83,21 @@ builder.Host.UseOrleansClient(client =>
 - property name is uppercase 
 - [Description("TEST_TABLE")] is table name
 -  [Description("VARCHAR2(50)")] is oracle data type
+### BaseEntity
 ```
 [GenerateSerializer]
 public class BaseEntity
 {
-    [Description("CHAR(36)")]
+    [Description("VARCHAR2(128)")]
     [Id(0)]
     [Key]
     public string ID { get; set; } = Guid.NewGuid().ToString();
-    [Description("CHAR(36)")]
-    [Id(1)]
-    public string ETAG { get; set; } = string.Empty;
 
 }
+```
+### Table
+```
 [Description("TEST_TABLE")]
-
 [GenerateSerializer]
 public class TestModel : BaseEntity
 {
@@ -119,39 +119,27 @@ public interface IHelloGrain : IGrainWithGuidKey
 ```
 ### impliment grain
 ```
+using Orleans.Persistence.Oracle.States;
 public class HelloGrain : Grain, IHelloGrain
 {
     private readonly ILogger _logger;
 
-    private readonly IPersistentState<TestModel> _test;
-    public HelloGrain(ILogger<HelloGrain> logger, [PersistentState("test", "Test1Context")] IPersistentState<TestModel> test)
+    private readonly IPersistentState<BaseState<TestModel>> _test;
+    public HelloGrain(ILogger<HelloGrain> logger, [PersistentState("test", "Test1Context")] IPersistentState<BaseState<TestModel>> test)
     {
         _logger = logger;
         _test = test;
     }
 
-    ValueTask<string> IHelloGrain.SayHello(string greeting)
-    {
-        _logger.LogInformation("""
-        SayHello message received: greeting = "{Greeting}"
-        """,
-            greeting);
-
-        return ValueTask.FromResult($"""
-
-        Client said: "{greeting}", so HelloGrain says: Hello!
-        """);
-    }
-
-    public async Task<string> GetMyColumn()
+    public async Task<string> GetCount()
     {
         await _test.ReadStateAsync();
-        return _test.State.MYCOLUM;
+        return _test.State.Items.Count.ToString();
     }
 
-    public async void SaveColumn()
+    public async Task AddItem(TestModel model)
     {
-        _test.State.MYCOLUM = "test";
+        _test.State.Items = [model,];
         await _test.WriteStateAsync();
     }
 }
