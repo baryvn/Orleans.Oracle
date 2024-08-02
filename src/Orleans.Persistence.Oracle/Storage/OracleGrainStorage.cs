@@ -48,10 +48,10 @@ public class OracleGrainStorage<TContext> : IGrainStorage, ILifecycleParticipant
             var itemType = itemsPop.PropertyType.GetGenericArguments().FirstOrDefault();
             if (itemType != null)
             {
-                var result = await _context.GetEntityByIdAsync(grainId.ToString(), itemType);
+                var result = await _context.GetEntityByIdAsync(grainId.GetGuidKey().ToString(), itemType);
                 if (result != null && result.Any())
                 {
-                    await _context.DeleteEntityAsync(grainId.ToString(), itemType);
+                    await _context.DeleteEntityAsync(grainId.GetGuidKey().ToString(), itemType);
                     grainState.State = Activator.CreateInstance<T>()!;
                     grainState.RecordExists = false;
                 }
@@ -68,7 +68,7 @@ public class OracleGrainStorage<TContext> : IGrainStorage, ILifecycleParticipant
             var itemType = itemsPop.PropertyType.GetGenericArguments().FirstOrDefault();
             if (itemType != null)
             {
-                var result = await _context.GetEntityByIdAsync(grainId.ToString(), itemType);
+                var result = await _context.GetEntityByIdAsync(grainId.GetGuidKey().ToString(), itemType);
                 if (result != null)
                 {
                     Type listType = typeof(List<>).MakeGenericType(itemType);
@@ -116,7 +116,7 @@ public class OracleGrainStorage<TContext> : IGrainStorage, ILifecycleParticipant
                 var items = itemsPop.GetValue(grainState.State) as IEnumerable<object>;
                 if (items != null)
                 {
-                    await _context.InsertOrUpdateAsync(grainId.ToString(), items, itemType);
+                    await _context.InsertOrUpdateAsync(grainId.GetGuidKey().ToString(), items, itemType);
                 }
                 else
                 {

@@ -29,7 +29,7 @@ namespace Test.AspNet.Client.Controllers
             await g.AddItem(new TestModel
             {
                 MYCOLUM = name,
-                ID = g.GetGrainId().ToString()
+                ID = g.GetGrainId().GetGuidKey().ToString()
             });
             var c = await g.GetCount();
 
