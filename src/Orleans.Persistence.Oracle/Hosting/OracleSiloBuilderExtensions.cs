@@ -28,7 +28,6 @@ public static class OracleSiloBuilderExtensions
 
         OracleGrainStorageOptions option = new OracleGrainStorageOptions { GrainStorageSerializer = null };
         options.Invoke(option);
-
         services.AddDbContextPool<T>(options => options.UseOracle(option.ConnectionString));
 
         services.AddTransient<IPostConfigureOptions<OracleGrainStorageOptions>, DefaultStorageProviderSerializerOptionsConfigurator<OracleGrainStorageOptions>>();
