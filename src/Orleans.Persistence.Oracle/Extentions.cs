@@ -86,7 +86,7 @@ namespace Orleans.Persistence.Oracle
             var keyProperty = type.GetProperties().FirstOrDefault(p => p.Name == type.GetKey());
             if (keyProperty == null) throw new InvalidOperationException("No key column found.");
 
-            var sql = $"SELECT * FROM {tableName} WHERE {keyProperty.Name} = :{type.GetKey()}";
+            var sql = $"SELECT * FROM {tableName} WHERE {keyProperty.Name} = :{keyProperty.Name}";
             var parameter = new OracleParameter(type.GetKey(), key);
 
             var results = new List<dynamic>();

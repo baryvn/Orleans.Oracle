@@ -33,7 +33,7 @@ namespace Orleans.Hosting
                     {
                         services.Configure(configureOptions);
 
-                        OracleClusteringSiloOptions option = new OracleClusteringSiloOptions ();
+                        OracleClusteringSiloOptions option = new OracleClusteringSiloOptions();
                         configureOptions.Invoke(option);
                         services.AddDbContext<ClustringContext>(options => options.UseOracle(option.ConnectionString));
                     }
@@ -113,7 +113,7 @@ namespace Orleans.Hosting
 
                         OracleGatewayListProviderOptions option = new OracleGatewayListProviderOptions();
                         configureOptions.Invoke(option);
-                        services.AddDbContext<ClustringContext>(options => options.UseOracle(option.ConnectionString));
+                        services.AddDbContext<ClustringContext>(options => options.UseOracle(option.ConnectionString), ServiceLifetime.Transient);
                     }
                     services.AddSingleton<IGatewayListProvider, OracleGatewayListProvider>();
                 });
