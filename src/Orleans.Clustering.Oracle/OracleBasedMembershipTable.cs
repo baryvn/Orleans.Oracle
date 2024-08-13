@@ -16,6 +16,7 @@ namespace Orleans.Runtime.Membership
     {
         private readonly ILogger logger;
         private readonly IServiceProvider _provider;
+        private readonly OracleClusteringSiloOptions _options;
 
         private readonly string ClusterId;
         private static readonly TableVersion DefaultTableVersion = new TableVersion(0, "0");
@@ -23,12 +24,14 @@ namespace Orleans.Runtime.Membership
         public bool IsInitialized { get; private set; }
         public OracleBasedMembershipTable(
             ILogger<OracleBasedMembershipTable> logger,
+            IOptions<OracleClusteringSiloOptions> membershipTableOptions,
             IServiceProvider provider,
             IOptions<ClusterOptions> clusterOptions)
         {
             this.logger = logger;
             ClusterId = clusterOptions.Value.ClusterId;
             _provider = provider;
+            _options = membershipTableOptions.Value;
         }
         /// <summary>
         /// Initialize Membership Table
@@ -41,14 +44,13 @@ namespace Orleans.Runtime.Membership
             {
                 try
                 {
-                    using (var scope = _provider.CreateAsyncScope())
+                    var optionsBuilder = new DbContextOptionsBuilder<ClustringContext>();
+                    optionsBuilder.UseOracle(_options.ConnectionString);
+                    using (var _context = new ClustringContext(optionsBuilder.Options))
                     {
-                        var _context = scope.ServiceProvider.GetService<ClustringContext>();
-                        if (_context != null)
-                        {
 
-                            // Thực hiện các lệnh SQL để tạo bảng
-                            await _context.Database.ExecuteSqlRawAsync($@"
+                        // Thực hiện các lệnh SQL để tạo bảng
+                        await _context.Database.ExecuteSqlRawAsync($@"
                                                                 BEGIN
                                                                     EXECUTE IMMEDIATE 'CREATE TABLE {ClusterId}_Members (
                                                                         SiloAddress VARCHAR2(255) PRIMARY KEY, 
@@ -66,7 +68,7 @@ namespace Orleans.Runtime.Membership
                                                                         END IF;
                                                                 END;
                                                             ");
-                            await _context.Database.ExecuteSqlRawAsync($@"
+                        await _context.Database.ExecuteSqlRawAsync($@"
                                                                 BEGIN
                                                                     EXECUTE IMMEDIATE 'CREATE TABLE TableVersion (
                                                                         ClusterId VARCHAR2(255) PRIMARY KEY, 
@@ -83,32 +85,31 @@ namespace Orleans.Runtime.Membership
                                                                 END;
                                                             ");
 
-                            // Kiểm tra sự tồn tại của dữ liệu trong TableVersion
-                            var sqlQuery = $@"
+                        // Kiểm tra sự tồn tại của dữ liệu trong TableVersion
+                        var sqlQuery = $@"
                                         SELECT COUNT(*) as COUNT
                                         FROM TableVersion 
                                         WHERE ClusterId = :ClusterId
                                     ";
 
-                            var count = await _context.Database.SqlQueryRaw<CountModel>(sqlQuery,
-                                new OracleParameter("ClusterId", this.ClusterId)
-                            ).FirstOrDefaultAsync();
+                        var count = await _context.Database.SqlQueryRaw<CountModel>(sqlQuery,
+                            new OracleParameter("ClusterId", this.ClusterId)
+                        ).FirstOrDefaultAsync();
 
-                            if (count != null && count.COUNT == 0)
-                            {
-                                // Chèn dữ liệu vào TableVersion
-                                var insertCommand = $@"
+                        if (count != null && count.COUNT == 0)
+                        {
+                            // Chèn dữ liệu vào TableVersion
+                            var insertCommand = $@"
                                                 INSERT INTO TableVersion (ClusterId, Data) 
                                                 VALUES (:ClusterId, :Data)
                                             ";
 
-                                await _context.Database.ExecuteSqlRawAsync(insertCommand,
-                                    new OracleParameter("ClusterId", this.ClusterId),
-                                    new OracleParameter("Data", JsonSerializer.Serialize(DefaultTableVersion))
-                                );
-                            }
-
+                            await _context.Database.ExecuteSqlRawAsync(insertCommand,
+                                new OracleParameter("ClusterId", this.ClusterId),
+                                new OracleParameter("Data", JsonSerializer.Serialize(DefaultTableVersion))
+                            );
                         }
+
                     }
                     IsInitialized = true;
                 }
@@ -133,45 +134,43 @@ namespace Orleans.Runtime.Membership
             try
             {
                 TableVersion tableVersion = DefaultTableVersion;
-                using (var scope = _provider.CreateAsyncScope())
+                var optionsBuilder = new DbContextOptionsBuilder<ClustringContext>();
+                optionsBuilder.UseOracle(_options.ConnectionString);
+                using (var _context = new ClustringContext(optionsBuilder.Options))
                 {
-                    var _context = scope.ServiceProvider.GetService<ClustringContext>();
-                    if (_context != null)
+                    // Truy vấn dữ liệu TableVersion từ Oracle
+                    var tableVersionQuery = "SELECT * FROM TableVersion WHERE ClusterId = :ClusterId";
+                    var tableVersionParams = new[] { new OracleParameter("ClusterId", ClusterId) };
+
+                    var tableVersionResults = await _context.Database
+                        .SqlQueryRaw<TableVersionModel>(tableVersionQuery, tableVersionParams)
+                        .ToListAsync();
+
+                    if (tableVersionResults.Any())
                     {
-                        // Truy vấn dữ liệu TableVersion từ Oracle
-                        var tableVersionQuery = "SELECT * FROM TableVersion WHERE ClusterId = :ClusterId";
-                        var tableVersionParams = new[] { new OracleParameter("ClusterId", ClusterId) };
-
-                        var tableVersionResults = await _context.Database
-                            .SqlQueryRaw<TableVersionModel>(tableVersionQuery, tableVersionParams)
-                            .ToListAsync();
-
-                        if (tableVersionResults.Any())
+                        var state = tableVersionResults.Single();
+                        var table = JsonSerializer.Deserialize<TableVersionData>(state.Data);
+                        if (table != null)
                         {
-                            var state = tableVersionResults.Single();
-                            var table = JsonSerializer.Deserialize<TableVersionData>(state.Data);
-                            if (table != null)
-                            {
-                                tableVersion = new TableVersion(table.Version, table.VersionEtag);
-                            }
+                            tableVersion = new TableVersion(table.Version, table.VersionEtag);
                         }
+                    }
 
-                        // Truy vấn dữ liệu MemberModel từ Oracle
-                        var memberQuery = $"SELECT * FROM {ClusterId}_Members WHERE SiloAddress = :SiloAddress";
-                        var memberParams = new[] { new OracleParameter("SiloAddress", siloAddress.ToString()) };
+                    // Truy vấn dữ liệu MemberModel từ Oracle
+                    var memberQuery = $"SELECT * FROM {ClusterId}_Members WHERE SiloAddress = :SiloAddress";
+                    var memberParams = new[] { new OracleParameter("SiloAddress", siloAddress.ToString()) };
 
-                        var memberResults = await _context.Database
-                            .SqlQueryRaw<MemberModel>(memberQuery, memberParams)
-                            .ToListAsync();
+                    var memberResults = await _context.Database
+                        .SqlQueryRaw<MemberModel>(memberQuery, memberParams)
+                        .ToListAsync();
 
-                        var member = memberResults
-                            .Select(p => Tuple.Create(JsonSerializer.Deserialize<MembershipEntry>(p.Data), tableVersion.VersionEtag))
-                            .FirstOrDefault();
+                    var member = memberResults
+                        .Select(p => Tuple.Create(JsonSerializer.Deserialize<MembershipEntry>(p.Data), tableVersion.VersionEtag))
+                        .FirstOrDefault();
 
-                        if (member != null)
-                        {
-                            return new MembershipTableData(member, tableVersion);
-                        }
+                    if (member != null)
+                    {
+                        return new MembershipTableData(member, tableVersion);
                     }
                 }
             }
@@ -194,39 +193,37 @@ namespace Orleans.Runtime.Membership
             try
             {
                 TableVersion tableVersion = DefaultTableVersion;
-                using (var scope = _provider.CreateAsyncScope())
+                var optionsBuilder = new DbContextOptionsBuilder<ClustringContext>();
+                optionsBuilder.UseOracle(_options.ConnectionString);
+                using (var _context = new ClustringContext(optionsBuilder.Options))
                 {
-                    var _context = scope.ServiceProvider.GetService<ClustringContext>();
-                    if (_context != null)
+                    // Query for TableVersion
+                    var tableVersionQuery = "SELECT * FROM TableVersion WHERE ClusterId = :ClusterId";
+                    var tableVersionResult = await _context.Database
+                        .SqlQueryRaw<TableVersionModel>(tableVersionQuery, new OracleParameter("ClusterId", this.ClusterId))
+                        .ToListAsync();
+
+                    if (tableVersionResult.Any())
                     {
-                        // Query for TableVersion
-                        var tableVersionQuery = "SELECT * FROM TableVersion WHERE ClusterId = :ClusterId";
-                        var tableVersionResult = await _context.Database
-                            .SqlQueryRaw<TableVersionModel>(tableVersionQuery, new OracleParameter("ClusterId", this.ClusterId))
-                            .ToListAsync();
-
-                        if (tableVersionResult.Any())
+                        var state = tableVersionResult.Single();
+                        var table = JsonSerializer.Deserialize<TableVersionData>(state.Data);
+                        if (table != null)
                         {
-                            var state = tableVersionResult.Single();
-                            var table = JsonSerializer.Deserialize<TableVersionData>(state.Data);
-                            if (table != null)
-                            {
-                                tableVersion = new TableVersion(table.Version, table.VersionEtag);
-                            }
+                            tableVersion = new TableVersion(table.Version, table.VersionEtag);
                         }
-
-                        // Query for Members
-                        var membersQuery = $"SELECT * FROM {this.ClusterId}_Members";
-                        var membersResult = await _context.Database
-                            .SqlQueryRaw<MemberModel>(membersQuery)
-                            .ToListAsync();
-
-                        var members = membersResult
-                            .Select(p => Tuple.Create(JsonSerializer.Deserialize<MembershipEntry>(p.Data), tableVersion.VersionEtag))
-                            .ToList();
-
-                        return new MembershipTableData(members, tableVersion);
                     }
+
+                    // Query for Members
+                    var membersQuery = $"SELECT * FROM {this.ClusterId}_Members";
+                    var membersResult = await _context.Database
+                        .SqlQueryRaw<MemberModel>(membersQuery)
+                        .ToListAsync();
+
+                    var members = membersResult
+                        .Select(p => Tuple.Create(JsonSerializer.Deserialize<MembershipEntry>(p.Data), tableVersion.VersionEtag))
+                        .ToList();
+
+                    return new MembershipTableData(members, tableVersion);
                 }
             }
             catch (Exception ex)
@@ -283,55 +280,53 @@ namespace Orleans.Runtime.Membership
         {
             try
             {
-                using (var scope = _provider.CreateAsyncScope())
+                var optionsBuilder = new DbContextOptionsBuilder<ClustringContext>();
+                optionsBuilder.UseOracle(_options.ConnectionString);
+                using (var _context = new ClustringContext(optionsBuilder.Options))
                 {
-                    var _context = scope.ServiceProvider.GetService<ClustringContext>();
-                    if (_context != null)
+                    if (updateTableVersion)
                     {
-                        if (updateTableVersion)
+                        if (tableVersion.Version == 0 && "0".Equals(tableVersion.VersionEtag, StringComparison.Ordinal))
                         {
-                            if (tableVersion.Version == 0 && "0".Equals(tableVersion.VersionEtag, StringComparison.Ordinal))
+                            var selectQuery = $"SELECT * FROM TableVersion WHERE ClusterId = :ClusterId";
+                            var existingTableVersion = await _context.Database.SqlQueryRaw<TableVersionModel>(selectQuery, new OracleParameter("ClusterId", ClusterId)).ToListAsync();
+                            if (!existingTableVersion.Any())
                             {
-                                var selectQuery = $"SELECT * FROM TableVersion WHERE ClusterId = :ClusterId";
-                                var existingTableVersion = await _context.Database.SqlQueryRaw<TableVersionModel>(selectQuery, new OracleParameter("ClusterId", ClusterId)).ToListAsync();
-                                if (!existingTableVersion.Any())
-                                {
-                                    var insertQuery = "INSERT INTO TableVersion (ClusterId, Data) VALUES (:ClusterId, :Data)";
-                                    await _context.Database.ExecuteSqlRawAsync(insertQuery,
-                                        new OracleParameter("ClusterId", ClusterId),
-                                        new OracleParameter("Data", JsonSerializer.Serialize(DefaultTableVersion)));
-                                }
+                                var insertQuery = "INSERT INTO TableVersion (ClusterId, Data) VALUES (:ClusterId, :Data)";
+                                await _context.Database.ExecuteSqlRawAsync(insertQuery,
+                                    new OracleParameter("ClusterId", ClusterId),
+                                    new OracleParameter("Data", JsonSerializer.Serialize(DefaultTableVersion)));
                             }
-                            else
-                            {
-                                var updateQuery = "UPDATE TableVersion SET Data = :Data WHERE ClusterId = :ClusterId";
-                                await _context.Database.ExecuteSqlRawAsync(updateQuery,
-                                     new OracleParameter("Data", JsonSerializer.Serialize(tableVersion)),
-                                      new OracleParameter("ClusterId", ClusterId));
-                            }
-                        }
-
-                        var memberQuery = $"SELECT * FROM {ClusterId}_Members WHERE SiloAddress = :SiloAddress";
-                        var member = await _context.Database.SqlQueryRaw<MemberModel>(memberQuery, new OracleParameter("SiloAddress", entry.SiloAddress.ToString())).ToListAsync();
-
-                        if (!member.Any())
-                        {
-                            var insertMemberQuery = $"INSERT INTO {ClusterId}_Members (SiloAddress, Data,IAmAliveTime,Status) VALUES (:SiloAddress, :Data, :IAmAliveTime, :Status)";
-                            await _context.Database.ExecuteSqlRawAsync(insertMemberQuery,
-                                new OracleParameter("SiloAddress", entry.SiloAddress.ToString()),
-                                new OracleParameter("IAmAliveTime", entry.IAmAliveTime),
-                                new OracleParameter("Status", (int)entry.Status),
-                                new OracleParameter("Data", JsonSerializer.Serialize(entry)));
                         }
                         else
                         {
-                            var updateMemberQuery = $"UPDATE {ClusterId}_Members SET Data = :Data, IAmAliveTime = :IAmAliveTime,Status = :Status WHERE SiloAddress = :SiloAddress";
-                            await _context.Database.ExecuteSqlRawAsync(updateMemberQuery,
-                                new OracleParameter("SiloAddress", entry.SiloAddress.ToString()),
-                                new OracleParameter("IAmAliveTime", entry.IAmAliveTime),
-                                new OracleParameter("Status", (int)entry.Status),
-                                new OracleParameter("Data", JsonSerializer.Serialize(entry)));
+                            var updateQuery = "UPDATE TableVersion SET Data = :Data WHERE ClusterId = :ClusterId";
+                            await _context.Database.ExecuteSqlRawAsync(updateQuery,
+                                 new OracleParameter("Data", JsonSerializer.Serialize(tableVersion)),
+                                  new OracleParameter("ClusterId", ClusterId));
                         }
+                    }
+
+                    var memberQuery = $"SELECT * FROM {ClusterId}_Members WHERE SiloAddress = :SiloAddress";
+                    var member = await _context.Database.SqlQueryRaw<MemberModel>(memberQuery, new OracleParameter("SiloAddress", entry.SiloAddress.ToString())).ToListAsync();
+
+                    if (!member.Any())
+                    {
+                        var insertMemberQuery = $"INSERT INTO {ClusterId}_Members (SiloAddress, Data,IAmAliveTime,Status) VALUES (:SiloAddress, :Data, :IAmAliveTime, :Status)";
+                        await _context.Database.ExecuteSqlRawAsync(insertMemberQuery,
+                            new OracleParameter("SiloAddress", entry.SiloAddress.ToString()),
+                            new OracleParameter("IAmAliveTime", entry.IAmAliveTime),
+                            new OracleParameter("Status", (int)entry.Status),
+                            new OracleParameter("Data", JsonSerializer.Serialize(entry)));
+                    }
+                    else
+                    {
+                        var updateMemberQuery = $"UPDATE {ClusterId}_Members SET Data = :Data, IAmAliveTime = :IAmAliveTime,Status = :Status WHERE SiloAddress = :SiloAddress";
+                        await _context.Database.ExecuteSqlRawAsync(updateMemberQuery,
+                            new OracleParameter("SiloAddress", entry.SiloAddress.ToString()),
+                            new OracleParameter("IAmAliveTime", entry.IAmAliveTime),
+                            new OracleParameter("Status", (int)entry.Status),
+                            new OracleParameter("Data", JsonSerializer.Serialize(entry)));
                     }
                 }
                 return true;
@@ -359,39 +354,37 @@ namespace Orleans.Runtime.Membership
             try
             {
                 TableVersion tableVersion = DefaultTableVersion;
-                using (var scope = _provider.CreateAsyncScope())
+                var optionsBuilder = new DbContextOptionsBuilder<ClustringContext>();
+                optionsBuilder.UseOracle(_options.ConnectionString);
+                using (var _context = new ClustringContext(optionsBuilder.Options))
                 {
-                    var _context = scope.ServiceProvider.GetService<ClustringContext>();
-                    if (_context != null)
+                    // Lấy thông tin phiên bản bảng từ Oracle
+                    var selectTableVersionQuery = "SELECT * FROM TableVersion WHERE ClusterId = :ClusterId";
+                    var existingTableVersion = await _context.Database.SqlQueryRaw<TableVersionModel>(selectTableVersionQuery, new OracleParameter("ClusterId", ClusterId)).ToListAsync();
+
+                    if (existingTableVersion.Any())
                     {
-                        // Lấy thông tin phiên bản bảng từ Oracle
-                        var selectTableVersionQuery = "SELECT * FROM TableVersion WHERE ClusterId = :ClusterId";
-                        var existingTableVersion = await _context.Database.SqlQueryRaw<TableVersionModel>(selectTableVersionQuery, new OracleParameter("ClusterId", ClusterId)).ToListAsync();
-
-                        if (existingTableVersion.Any())
+                        var state = existingTableVersion.Single();
+                        var table = JsonSerializer.Deserialize<TableVersionData>(state.Data);
+                        if (table != null)
                         {
-                            var state = existingTableVersion.Single();
-                            var table = JsonSerializer.Deserialize<TableVersionData>(state.Data);
-                            if (table != null)
-                            {
-                                tableVersion = new TableVersion(table.Version, table.VersionEtag).Next();
-                            }
+                            tableVersion = new TableVersion(table.Version, table.VersionEtag).Next();
                         }
+                    }
 
-                        // Lấy thông tin thành viên từ Oracle
-                        var selectMemberQuery = $"SELECT * FROM {ClusterId}_Members WHERE SiloAddress = :SiloAddress";
-                        var result = await _context.Database.SqlQueryRaw<MemberModel>(selectMemberQuery, new OracleParameter("SiloAddress", entry.SiloAddress.ToString())).ToListAsync();
-                        var member = result.Select(p => JsonSerializer.Deserialize<MembershipEntry>(p.Data)).FirstOrDefault();
+                    // Lấy thông tin thành viên từ Oracle
+                    var selectMemberQuery = $"SELECT * FROM {ClusterId}_Members WHERE SiloAddress = :SiloAddress";
+                    var result = await _context.Database.SqlQueryRaw<MemberModel>(selectMemberQuery, new OracleParameter("SiloAddress", entry.SiloAddress.ToString())).ToListAsync();
+                    var member = result.Select(p => JsonSerializer.Deserialize<MembershipEntry>(p.Data)).FirstOrDefault();
 
-                        if (member != null)
-                        {
-                            member.IAmAliveTime = entry.IAmAliveTime;
-                            await InsertOrUpdateMember(member, tableVersion, updateTableVersion: false);
-                        }
-                        else
-                        {
-                            throw new Exception("Member not found!");
-                        }
+                    if (member != null)
+                    {
+                        member.IAmAliveTime = entry.IAmAliveTime;
+                        await InsertOrUpdateMember(member, tableVersion, updateTableVersion: false);
+                    }
+                    else
+                    {
+                        throw new Exception("Member not found!");
                     }
                 }
             }
@@ -408,14 +401,12 @@ namespace Orleans.Runtime.Membership
         {
             try
             {
-                using (var scope = _provider.CreateAsyncScope())
+                var optionsBuilder = new DbContextOptionsBuilder<ClustringContext>();
+                optionsBuilder.UseOracle(_options.ConnectionString);
+                using (var _context = new ClustringContext(optionsBuilder.Options))
                 {
-                    var _context = scope.ServiceProvider.GetService<ClustringContext>();
-                    if (_context != null)
-                    {
-                        var deleteQuery = $"DELETE FROM {clusterId}_Members";
-                        await _context.Database.ExecuteSqlRawAsync(deleteQuery);
-                    }
+                    var deleteQuery = $"DELETE FROM {clusterId}_Members";
+                    await _context.Database.ExecuteSqlRawAsync(deleteQuery);
                 }
             }
             catch (Exception ex)
@@ -427,18 +418,16 @@ namespace Orleans.Runtime.Membership
         {
             try
             {
-                using (var scope = _provider.CreateAsyncScope())
+                var optionsBuilder = new DbContextOptionsBuilder<ClustringContext>();
+                optionsBuilder.UseOracle(_options.ConnectionString);
+                using (var _context = new ClustringContext(optionsBuilder.Options))
                 {
-                    var _context = scope.ServiceProvider.GetService<ClustringContext>();
-                    if (_context != null)
-                    {
-                        var cleanupQuery = $@"  DELETE FROM {ClusterId}_Members 
+                    var cleanupQuery = $@"  DELETE FROM {ClusterId}_Members 
                                         WHERE  Status = :Status AND IAmAliveTime < :BeforeDate";
 
-                        await _context.Database.ExecuteSqlRawAsync(cleanupQuery,
-                            new OracleParameter("Status", (int)SiloStatus.Dead),
-                            new OracleParameter("BeforeDate", beforeDate));
-                    }
+                    await _context.Database.ExecuteSqlRawAsync(cleanupQuery,
+                        new OracleParameter("Status", (int)SiloStatus.Dead),
+                        new OracleParameter("BeforeDate", beforeDate));
                 }
             }
             catch (Exception ex)

@@ -15,18 +15,21 @@ namespace Orleans.Runtime.Membership
         private readonly string ClusterId;
         private readonly TimeSpan _maxStaleness;
         private readonly IServiceProvider _provider;
+        private readonly OracleGatewayListProviderOptions _options;
         public bool IsInitialized { get; private set; }
 
         public OracleGatewayListProvider(
             ILogger<OracleGatewayListProvider> logger,
             IOptions<GatewayOptions> gatewayOptions,
             IServiceProvider provider,
+            IOptions<OracleGatewayListProviderOptions> gatewayListProviderOptionss,
             IOptions<ClusterOptions> clusterOptions)
         {
             this.logger = logger;
             ClusterId = clusterOptions.Value.ClusterId;
             _provider = provider;
             _maxStaleness = gatewayOptions.Value.GatewayListRefreshPeriod;
+            _options = gatewayListProviderOptionss.Value;
         }
 
         /// <summary>
@@ -44,15 +47,14 @@ namespace Orleans.Runtime.Membership
 
 
             IList<Uri> dataRs = new List<Uri>();
-            using (var scope = _provider.CreateAsyncScope())
+            var optionsBuilder = new DbContextOptionsBuilder<ClustringContext>();
+            optionsBuilder.UseOracle(_options.ConnectionString);
+            using(var _context = new ClustringContext(optionsBuilder.Options))
             {
-                var _context = scope.ServiceProvider.GetService<ClustringContext>();
-                if (_context != null)
+                if (!IsInitialized)
                 {
-                    if (!IsInitialized)
-                    {
-                        // Thực hiện các lệnh SQL để tạo bảng
-                        await _context.Database.ExecuteSqlRawAsync($@"
+                    // Thực hiện các lệnh SQL để tạo bảng
+                    await _context.Database.ExecuteSqlRawAsync($@"
                                                                 BEGIN
                                                                     EXECUTE IMMEDIATE 'CREATE TABLE {ClusterId}_Members (
                                                                         SiloAddress VARCHAR2(255) PRIMARY KEY, 
@@ -70,22 +72,21 @@ namespace Orleans.Runtime.Membership
                                                                         END IF;
                                                                 END;
                                                             ");
-                        IsInitialized = true;
-                    }
+                    IsInitialized = true;
+                }
 
 
-                    var query = $"SELECT * FROM {ClusterId}_Members";
-                    var result = await _context.Database.SqlQueryRaw<MemberModel>(query).ToListAsync();
-                    if (result.Any())
+                var query = $"SELECT * FROM {ClusterId}_Members";
+                var result = await _context.Database.SqlQueryRaw<MemberModel>(query).ToListAsync();
+                if (result.Any())
+                {
+                    foreach (var item in result)
                     {
-                        foreach (var item in result)
+                        var data = JsonSerializer.Deserialize<MembershipEntry>(item.Data);
+                        if (data != null && data.Status == SiloStatus.Active && data.ProxyPort > 0)
                         {
-                            var data = JsonSerializer.Deserialize<MembershipEntry>(item.Data);
-                            if (data != null && data.Status == SiloStatus.Active && data.ProxyPort > 0)
-                            {
-                                data.SiloAddress.Endpoint.Port = data.ProxyPort;
-                                dataRs.Add(data.SiloAddress.ToGatewayUri());
-                            }
+                            data.SiloAddress.Endpoint.Port = data.ProxyPort;
+                            dataRs.Add(data.SiloAddress.ToGatewayUri());
                         }
                     }
                 }
