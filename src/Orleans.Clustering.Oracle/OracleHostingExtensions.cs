@@ -2,6 +2,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Orleans.Messaging;
 using Orleans.Runtime.Membership;
 using Orleans.Configuration;
+using Microsoft.EntityFrameworkCore;
+using Orleans.Clustering.Oracle;
 
 namespace Orleans.Hosting
 {
@@ -33,6 +35,7 @@ namespace Orleans.Hosting
 
                         OracleClusteringSiloOptions option = new OracleClusteringSiloOptions();
                         configureOptions.Invoke(option);
+                        services.AddDbContext<ClustringContext>(options => options.UseOracle(option.ConnectionString));
                     }
 
                     services.AddSingleton<IMembershipTable, OracleBasedMembershipTable>();
@@ -57,6 +60,7 @@ namespace Orleans.Hosting
             return builder.ConfigureServices(
                 services =>
                 {
+                    services.AddDbContext<ClustringContext>(options => options.UseOracle(oraOptions.ConnectionString));
                     services.AddSingleton<IMembershipTable, OracleBasedMembershipTable>();
                 });
         }
@@ -79,6 +83,7 @@ namespace Orleans.Hosting
             return builder.ConfigureServices(
                 services =>
                 {
+                    services.AddDbContext<ClustringContext>(options => options.UseOracle(oraOptions.ConnectionString));
                     services.AddSingleton<IGatewayListProvider, OracleGatewayListProvider>();
                 });
         }
@@ -108,6 +113,7 @@ namespace Orleans.Hosting
 
                         OracleGatewayListProviderOptions option = new OracleGatewayListProviderOptions();
                         configureOptions.Invoke(option);
+                        services.AddDbContext<ClustringContext>(options => options.UseOracle(option.ConnectionString), ServiceLifetime.Transient);
                     }
                     services.AddSingleton<IGatewayListProvider, OracleGatewayListProvider>();
                 });

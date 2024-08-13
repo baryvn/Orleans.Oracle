@@ -9,7 +9,7 @@ using System.Reflection;
 
 namespace Orleans.Persistence.Oracle.Storage;
 
-public class OracleGrainStorage : IGrainStorage, ILifecycleParticipant<ISiloLifecycle>
+public class OracleGrainStorage<TContext> : IGrainStorage, ILifecycleParticipant<ISiloLifecycle> where TContext : DbContext
 {
     private readonly string _storageName;
     private readonly OracleGrainStorageOptions _options;
@@ -36,11 +36,13 @@ public class OracleGrainStorage : IGrainStorage, ILifecycleParticipant<ISiloLife
         {
             foreach (var item in _tables)
             {
-                var optionsBuilder = new DbContextOptionsBuilder<StorageContext>();
-                optionsBuilder.UseOracle(_options.ConnectionString);
-                using (var _context = new StorageContext(optionsBuilder.Options))
+                using (var scope = _scopeFactory.CreateScope())
                 {
-                    await _context.CreateTableIfNotExistsAsync(item);
+                    var _context = scope.ServiceProvider.GetService<TContext>();
+                    if (_context != null)
+                    {
+                        await _context.CreateTableIfNotExistsAsync(item);
+                    }
                 }
             }
         });
@@ -54,16 +56,18 @@ public class OracleGrainStorage : IGrainStorage, ILifecycleParticipant<ISiloLife
             var itemType = itemsPop.PropertyType.GetGenericArguments().FirstOrDefault();
             if (itemType != null)
             {
-                var optionsBuilder = new DbContextOptionsBuilder<StorageContext>();
-                optionsBuilder.UseOracle(_options.ConnectionString);
-                using (var _context = new StorageContext(optionsBuilder.Options))
+                using (var scope = _scopeFactory.CreateScope())
                 {
-                    var result = await _context.GetEntityByIdAsync(grainId.GetGuidKey().ToString(), itemType);
-                    if (result != null && result.Any())
+                    var _context = scope.ServiceProvider.GetService<TContext>();
+                    if (_context != null)
                     {
-                        await _context.DeleteEntityAsync(grainId.GetGuidKey().ToString(), itemType);
-                        grainState.State = Activator.CreateInstance<T>()!;
-                        grainState.RecordExists = false;
+                        var result = await _context.GetEntityByIdAsync(grainId.GetGuidKey().ToString(), itemType);
+                        if (result != null && result.Any())
+                        {
+                            await _context.DeleteEntityAsync(grainId.GetGuidKey().ToString(), itemType);
+                            grainState.State = Activator.CreateInstance<T>()!;
+                            grainState.RecordExists = false;
+                        }
                     }
                 }
             }
@@ -79,27 +83,33 @@ public class OracleGrainStorage : IGrainStorage, ILifecycleParticipant<ISiloLife
             var itemType = itemsPop.PropertyType.GetGenericArguments().FirstOrDefault();
             if (itemType != null)
             {
-                var optionsBuilder = new DbContextOptionsBuilder<StorageContext>();
-                optionsBuilder.UseOracle(_options.ConnectionString);
-                using (var _context = new StorageContext(optionsBuilder.Options))
+                using (var scope = _scopeFactory.CreateScope())
                 {
-                    var result = await _context.GetEntityByIdAsync(grainId.GetGuidKey().ToString(), itemType);
-                    if (result != null)
+                    var _context = scope.ServiceProvider.GetService<TContext>();
+                    if (_context != null)
                     {
-                        Type listType = typeof(List<>).MakeGenericType(itemType);
-                        MethodInfo addMethod = listType.GetMethod("Add");
-
-                        var listInstance = Activator.CreateInstance(listType);
-                        foreach (var item in result)
+                        var result = await _context.GetEntityByIdAsync(grainId.GetGuidKey().ToString(), itemType);
+                        if (result != null)
                         {
-                            var itemVal = Extentions.ConvertToTestModel(item, itemType);
-                            addMethod.Invoke(listInstance, new object[] { itemVal });
+                            Type listType = typeof(List<>).MakeGenericType(itemType);
+                            MethodInfo addMethod = listType.GetMethod("Add");
 
+                            var listInstance = Activator.CreateInstance(listType);
+                            foreach (var item in result)
+                            {
+                                var itemVal = Extentions.ConvertToTestModel(item, itemType);
+                                addMethod.Invoke(listInstance, new object[] { itemVal });
+
+                            }
+                            var state = Activator.CreateInstance<T>();
+                            itemsPop.SetValue(state, listInstance);
+                            grainState.State = state;
+                            grainState.RecordExists = true;
                         }
-                        var state = Activator.CreateInstance<T>();
-                        itemsPop.SetValue(state, listInstance);
-                        grainState.State = state;
-                        grainState.RecordExists = true;
+                        else
+                        {
+                            grainState.State = Activator.CreateInstance<T>()!;
+                        }
                     }
                     else
                     {
@@ -132,14 +142,16 @@ public class OracleGrainStorage : IGrainStorage, ILifecycleParticipant<ISiloLife
                 var items = itemsPop.GetValue(grainState.State) as IEnumerable<object>;
                 if (items != null)
                 {
-                    var optionsBuilder = new DbContextOptionsBuilder<StorageContext>();
-                    optionsBuilder.UseOracle(_options.ConnectionString);
-                    using (var _context = new StorageContext(optionsBuilder.Options))
+                    using (var scope = _scopeFactory.CreateScope())
                     {
-                        var result = await _context.GetEntityByIdAsync(grainId.GetGuidKey().ToString(), itemType);
-                        if (result != null)
+                        var _context = scope.ServiceProvider.GetService<TContext>();
+                        if (_context != null)
                         {
-                            await _context.InsertOrUpdateAsync(grainId.GetGuidKey().ToString(), items, itemType);
+                            var result = await _context.GetEntityByIdAsync(grainId.GetGuidKey().ToString(), itemType);
+                            if (result != null)
+                            {
+                                await _context.InsertOrUpdateAsync(grainId.GetGuidKey().ToString(), items, itemType);
+                            }
                         }
                     }
                 }
