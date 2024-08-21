@@ -1,12 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Oracle.ManagedDataAccess.Client;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Data;
 using System.Dynamic;
 using System.Reflection;
-using System.Security.Principal;
 namespace Orleans.Persistence.Oracle
 {
     public static class Extentions
@@ -74,9 +72,10 @@ namespace Orleans.Persistence.Oracle
                     }
                     trans.Commit();
                 }
-                catch
+                catch (Exception ex)
                 {
                     trans.Rollback();
+                    throw ex;
                 }
             }
         }
@@ -95,23 +94,28 @@ namespace Orleans.Persistence.Oracle
                 command.CommandText = sql;
                 command.Parameters.Clear();
                 command.Parameters.Add(parameter);
-                if (command.Connection.State != ConnectionState.Open)
-                    command.Connection.Open();
-
-                using (var reader = await command.ExecuteReaderAsync())
+                if (command.Connection != null)
                 {
-                    while (await reader.ReadAsync())
+                    if (command.Connection.State != ConnectionState.Open)
+                        command.Connection.Open();
+
+                    using (var reader = await command.ExecuteReaderAsync())
                     {
-                        var expando = new ExpandoObject() as IDictionary<string, object>;
-                        for (var i = 0; i < reader.FieldCount; i++)
+                        while (await reader.ReadAsync())
                         {
-                            expando[reader.GetName(i)] = reader.GetValue(i);
+                            var expando = new ExpandoObject() as IDictionary<string, object>;
+                            for (var i = 0; i < reader.FieldCount; i++)
+                            {
+                                expando[reader.GetName(i)] = reader.GetValue(i);
+                            }
+                            results.Add(expando);
                         }
-                        results.Add(expando);
                     }
+                    await command.Connection.CloseAsync();
+                    return results;
                 }
+                throw new Exception("ERROR: DbConnection Is null");
             }
-            return results;
         }
         public static async Task DeleteEntityAsync(this DbContext context, string id, Type type)
         {
@@ -126,7 +130,7 @@ namespace Orleans.Persistence.Oracle
         }
         public static dynamic ConvertToDynamic(this object? obj)
         {
-            if(obj!= null)
+            if (obj != null)
             {
                 IDictionary<string, object> expando = new ExpandoObject();
                 foreach (var property in obj.GetType().GetProperties())
