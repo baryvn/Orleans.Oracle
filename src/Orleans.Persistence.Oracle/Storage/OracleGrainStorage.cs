@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Orleans.Configuration;
 using Orleans.Persistence.Oracle.Providers;
@@ -14,16 +15,18 @@ public class OracleGrainStorage : IGrainStorage, ILifecycleParticipant<ISiloLife
     private readonly string _storageName;
     private readonly OracleGrainStorageOptions _options;
     private readonly ClusterOptions _clusterOptions;
-    private readonly IServiceScopeFactory _scopeFactory;
     private readonly IList<Type> _tables;
+    private readonly ILogger<OracleGrainStorage> _logger;
+    private readonly IServiceProvider _provider;
 
-    public OracleGrainStorage(string storageName, OracleGrainStorageOptions options, IOptions<ClusterOptions> clusterOptions, IServiceScopeFactory scopeFactory)
+    public OracleGrainStorage(string storageName, OracleGrainStorageOptions options, IServiceProvider provider, IOptions<ClusterOptions> clusterOptions, ILogger<OracleGrainStorage> logger)
     {
         _options = options;
         _clusterOptions = clusterOptions.Value;
         _storageName = _clusterOptions.ServiceId + "_" + storageName;
-        _scopeFactory = scopeFactory;
         _tables = options.Tables;
+        _logger = logger;
+        _provider = provider;
     }
 
 
@@ -36,28 +39,39 @@ public class OracleGrainStorage : IGrainStorage, ILifecycleParticipant<ISiloLife
         {
             foreach (var item in _tables)
             {
-                var optionsBuilder = new DbContextOptionsBuilder<StorageContext>();
-                optionsBuilder.UseOracle(_options.ConnectionString);
-                using (var _context = new StorageContext(optionsBuilder.Options))
+                try
                 {
-                    await _context.CreateTableIfNotExistsAsync(item);
+                    var optionsBuilder = new DbContextOptionsBuilder<StorageContext>();
+                    optionsBuilder.UseOracle(_options.ConnectionString);
+                    using (var _context = new StorageContext(optionsBuilder.Options))
+                    {
+                        await _context.CreateTableIfNotExistsAsync(item);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception(ex.Message);
                 }
             }
         });
     }
     public async Task ClearStateAsync<T>(string stateName, GrainId grainId, IGrainState<T> grainState)
     {
-        var type = typeof(T);
-        var itemsPop = type.GetProperty("Items");
-        if (itemsPop != null)
+        try
         {
-            var itemType = itemsPop.PropertyType.GetGenericArguments().FirstOrDefault();
-            if (itemType != null)
+            var type = typeof(T);
+            var itemsPop = type.GetProperty("Items");
+            if (itemsPop != null)
             {
-                var optionsBuilder = new DbContextOptionsBuilder<StorageContext>();
-                optionsBuilder.UseOracle(_options.ConnectionString);
-                using (var _context = new StorageContext(optionsBuilder.Options))
+                var itemType = itemsPop.PropertyType.GetGenericArguments().FirstOrDefault();
+                if (itemType != null)
                 {
+                    var _context = _provider.GetService<StorageContext>();
+                    if (_context == null)
+                    {
+                        throw new Exception("Lỗi kết nối cơ sở dữ liệu");
+                    }
+
                     var result = await _context.GetEntityByIdAsync(grainId.GetGuidKey().ToString(), itemType);
                     if (result != null && result.Any())
                     {
@@ -68,21 +82,31 @@ public class OracleGrainStorage : IGrainStorage, ILifecycleParticipant<ISiloLife
                 }
             }
         }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
     }
 
     public async Task ReadStateAsync<T>(string stateName, GrainId grainId, IGrainState<T> grainState)
     {
-        var type = typeof(T);
-        var itemsPop = type.GetProperty("Items");
-        if (itemsPop != null)
+        try
         {
-            var itemType = itemsPop.PropertyType.GetGenericArguments().FirstOrDefault();
-            if (itemType != null)
+            var type = typeof(T);
+            var itemsPop = type.GetProperty("Items");
+            if (itemsPop != null)
             {
-                var optionsBuilder = new DbContextOptionsBuilder<StorageContext>();
-                optionsBuilder.UseOracle(_options.ConnectionString);
-                using (var _context = new StorageContext(optionsBuilder.Options))
+                var itemType = itemsPop.PropertyType.GetGenericArguments().FirstOrDefault();
+                if (itemType != null)
                 {
+
+
+                    var _context = _provider.GetService<StorageContext>();
+                    if (_context == null)
+                    {
+                        throw new Exception("Lỗi kết nối cơ sở dữ liệu");
+                    }
+
                     var result = await _context.GetEntityByIdAsync(grainId.GetGuidKey().ToString(), itemType);
                     if (result != null)
                     {
@@ -106,50 +130,62 @@ public class OracleGrainStorage : IGrainStorage, ILifecycleParticipant<ISiloLife
                         grainState.State = Activator.CreateInstance<T>()!;
                     }
                 }
+                else
+                {
+                    grainState.State = Activator.CreateInstance<T>()!;
+                }
+
             }
             else
             {
                 grainState.State = Activator.CreateInstance<T>()!;
             }
-
+            return;
         }
-        else
+        catch (Exception ex)
         {
-            grainState.State = Activator.CreateInstance<T>()!;
+            throw new Exception(ex.Message);
         }
-        return;
     }
 
     public async Task WriteStateAsync<T>(string stateName, GrainId grainId, IGrainState<T> grainState)
     {
-        var type = typeof(T);
-        var itemsPop = type.GetProperty("Items");
-        if (itemsPop != null)
+        try
         {
-            var itemType = itemsPop.PropertyType.GetGenericArguments().FirstOrDefault();
-            if (itemType != null)
+            var type = typeof(T);
+            var itemsPop = type.GetProperty("Items");
+            if (itemsPop != null)
             {
-                var items = itemsPop.GetValue(grainState.State) as IEnumerable<object>;
-                if (items != null)
+                var itemType = itemsPop.PropertyType.GetGenericArguments().FirstOrDefault();
+                if (itemType != null)
                 {
-                    var optionsBuilder = new DbContextOptionsBuilder<StorageContext>();
-                    optionsBuilder.UseOracle(_options.ConnectionString);
-                    using (var _context = new StorageContext(optionsBuilder.Options))
+                    var items = itemsPop.GetValue(grainState.State) as IEnumerable<object>;
+                    if (items != null)
                     {
+                        var _context = _provider.GetService<StorageContext>();
+                        if (_context == null)
+                        {
+                            throw new Exception("Lỗi kết nối cơ sở dữ liệu");
+                        }
+
                         var result = await _context.GetEntityByIdAsync(grainId.GetGuidKey().ToString(), itemType);
                         if (result != null)
                         {
                             await _context.InsertOrUpdateAsync(grainId.GetGuidKey().ToString(), items, itemType);
                         }
                     }
-                }
-                else
-                {
-                    itemsPop.SetValue(grainState.State, new List<object>());
+                    else
+                    {
+                        itemsPop.SetValue(grainState.State, new List<object>());
+                    }
                 }
             }
+            grainState.RecordExists = true;
         }
-        grainState.RecordExists = true;
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
     }
 
 }

@@ -28,8 +28,8 @@ public static class OracleSiloBuilderExtensions
 
         OracleGrainStorageOptions option = new OracleGrainStorageOptions { GrainStorageSerializer = null };
         options.Invoke(option);
-
         services.AddTransient<IPostConfigureOptions<OracleGrainStorageOptions>, DefaultStorageProviderSerializerOptionsConfigurator<OracleGrainStorageOptions>>();
+        services.AddDbContextPool<StorageContext>(options => options.UseOracle(option.ConnectionString), 3);
 
         return services.AddGrainStorage(providerName, OracleGrainStorageFactory.Create);
     }

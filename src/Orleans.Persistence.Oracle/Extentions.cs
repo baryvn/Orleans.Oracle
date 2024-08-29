@@ -79,14 +79,14 @@ namespace Orleans.Persistence.Oracle
                 }
             }
         }
-        public static async Task<List<dynamic>> GetEntityByIdAsync(this DbContext context, string key, Type type)
+        public static Task<List<dynamic>> GetEntityByIdAsync(this DbContext context, string key, Type type)
         {
             var tableName = type.GetTableName();
-            var keyProperty = type.GetProperties().FirstOrDefault(p => p.Name == type.GetKey());
-            if (keyProperty == null) throw new InvalidOperationException("No key column found.");
+            var keyName = type.GetKey();
+            if (string.IsNullOrEmpty(keyName)) throw new InvalidOperationException("No key column found.");
 
-            var sql = $"SELECT * FROM {tableName} WHERE {keyProperty.Name} = :{keyProperty.Name}";
-            var parameter = new OracleParameter(type.GetKey(), key);
+            var sql = $"SELECT * FROM {tableName} WHERE {keyName} = :{keyName}";
+            var parameter = new OracleParameter(keyName, key);
 
             var results = new List<dynamic>();
             using (var command = context.Database.GetDbConnection().CreateCommand())
@@ -99,9 +99,9 @@ namespace Orleans.Persistence.Oracle
                     if (command.Connection.State != ConnectionState.Open)
                         command.Connection.Open();
 
-                    using (var reader = await command.ExecuteReaderAsync())
+                    using (var reader = command.ExecuteReader())
                     {
-                        while (await reader.ReadAsync())
+                        while (reader.Read())
                         {
                             var expando = new ExpandoObject() as IDictionary<string, object>;
                             for (var i = 0; i < reader.FieldCount; i++)
@@ -111,8 +111,8 @@ namespace Orleans.Persistence.Oracle
                             results.Add(expando);
                         }
                     }
-                    await command.Connection.CloseAsync();
-                    return results;
+                    command.Connection.Close();
+                    return Task.FromResult(results);
                 }
                 throw new Exception("ERROR: DbConnection Is null");
             }
@@ -120,11 +120,11 @@ namespace Orleans.Persistence.Oracle
         public static async Task DeleteEntityAsync(this DbContext context, string id, Type type)
         {
             var tableName = type.GetTableName();
-            var keyProperty = type.GetProperties().FirstOrDefault(p => p.Name.ToLower() == type.GetKey());
-            if (keyProperty == null) throw new InvalidOperationException("No key column found.");
+            var keyName = type.GetKey();
+            if (string.IsNullOrEmpty(keyName)) throw new InvalidOperationException("No key column found.");
 
-            var sql = $"DELETE FROM {tableName} WHERE {keyProperty.Name} = :{type.GetKey()}";
-            var parameter = new OracleParameter(type.GetKey(), id);
+            var sql = $"DELETE FROM {tableName} WHERE {keyName} = :{keyName}";
+            var parameter = new OracleParameter(keyName, id);
 
             await context.Database.ExecuteSqlRawAsync(sql, parameter);
         }
