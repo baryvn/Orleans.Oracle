@@ -7,7 +7,10 @@
 
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Orleans.Runtime" Version="8.2.0" />
-		<PackageReference Include="Oracle.EntityFrameworkCore" Version="8.23.50" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\Orleans.Oracle.Core\Orleans.Oracle.Core.csproj" />
 	</ItemGroup>
 
 	<PropertyGroup>
@@ -24,7 +27,7 @@
 		<RepositoryType>git</RepositoryType>
 		<IncludeSymbols>true</IncludeSymbols>
 		<IncludeSource>true</IncludeSource>
-		<Version>8.2.0.7</Version>
+		<Version>8.2.0.5</Version>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 	</PropertyGroup>
 </Project>

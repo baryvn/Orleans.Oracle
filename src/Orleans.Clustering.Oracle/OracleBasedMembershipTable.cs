@@ -8,6 +8,7 @@ using System.Data;
 using Microsoft.EntityFrameworkCore;
 using Oracle.ManagedDataAccess.Client;
 using Microsoft.Extensions.DependencyInjection;
+using Orleans.Oracle.Core;
 
 namespace Orleans.Runtime.Membership
 {
@@ -16,7 +17,6 @@ namespace Orleans.Runtime.Membership
     {
         private readonly ILogger logger;
         private readonly IServiceProvider _provider;
-        private readonly OracleClusteringSiloOptions _options;
 
         private readonly string ClusterId;
         private static readonly TableVersion DefaultTableVersion = new TableVersion(0, "0");
@@ -24,14 +24,12 @@ namespace Orleans.Runtime.Membership
         public bool IsInitialized { get; private set; }
         public OracleBasedMembershipTable(
             ILogger<OracleBasedMembershipTable> logger,
-            IOptions<OracleClusteringSiloOptions> membershipTableOptions,
             IServiceProvider provider,
             IOptions<ClusterOptions> clusterOptions)
         {
             this.logger = logger;
             ClusterId = clusterOptions.Value.ClusterId;
             _provider = provider;
-            _options = membershipTableOptions.Value;
         }
         /// <summary>
         /// Initialize Membership Table
@@ -44,13 +42,15 @@ namespace Orleans.Runtime.Membership
             {
                 try
                 {
-                    var optionsBuilder = new DbContextOptionsBuilder<ClustringContext>();
-                    optionsBuilder.UseOracle(_options.ConnectionString);
-                    using (var _context = new ClustringContext(optionsBuilder.Options))
+                    using (var scope = _provider.CreateAsyncScope())
+                    using (var _context = scope.ServiceProvider.GetService<OracleDbContext>())
                     {
-
+                        if (_context == null)
+                        {
+                            throw new Exception("Lỗi kết nối cơ sở dữ liệu");
+                        }
                         // Thực hiện các lệnh SQL để tạo bảng
-                        await _context.Database.ExecuteSqlRawAsync($@"
+                        var sql = $@"
                                                                 BEGIN
                                                                     EXECUTE IMMEDIATE 'CREATE TABLE {ClusterId}_Members (
                                                                         SiloAddress VARCHAR2(255) PRIMARY KEY, 
@@ -67,8 +67,9 @@ namespace Orleans.Runtime.Membership
                                                                             RAISE;
                                                                         END IF;
                                                                 END;
-                                                            ");
-                        await _context.Database.ExecuteSqlRawAsync($@"
+                                                            ";
+                        await _context.Database.ExecuteSqlRawAsync(sql);
+                        sql = $@"
                                                                 BEGIN
                                                                     EXECUTE IMMEDIATE 'CREATE TABLE TableVersion (
                                                                         ClusterId VARCHAR2(255) PRIMARY KEY, 
@@ -83,7 +84,8 @@ namespace Orleans.Runtime.Membership
                                                                             RAISE;
                                                                         END IF;
                                                                 END;
-                                                            ");
+                                                            ";
+                        await _context.Database.ExecuteSqlRawAsync(sql);
 
                         // Kiểm tra sự tồn tại của dữ liệu trong TableVersion
                         var sqlQuery = $@"
@@ -134,10 +136,13 @@ namespace Orleans.Runtime.Membership
             try
             {
                 TableVersion tableVersion = DefaultTableVersion;
-                var optionsBuilder = new DbContextOptionsBuilder<ClustringContext>();
-                optionsBuilder.UseOracle(_options.ConnectionString);
-                using (var _context = new ClustringContext(optionsBuilder.Options))
+                using (var scope = _provider.CreateAsyncScope())
+                using (var _context = scope.ServiceProvider.GetService<OracleDbContext>())
                 {
+                    if (_context == null)
+                    {
+                        throw new Exception("Lỗi kết nối cơ sở dữ liệu");
+                    }
                     // Truy vấn dữ liệu TableVersion từ Oracle
                     var tableVersionQuery = "SELECT * FROM TableVersion WHERE ClusterId = :ClusterId";
                     var tableVersionParams = new[] { new OracleParameter("ClusterId", ClusterId) };
@@ -193,10 +198,13 @@ namespace Orleans.Runtime.Membership
             try
             {
                 TableVersion tableVersion = DefaultTableVersion;
-                var optionsBuilder = new DbContextOptionsBuilder<ClustringContext>();
-                optionsBuilder.UseOracle(_options.ConnectionString);
-                using (var _context = new ClustringContext(optionsBuilder.Options))
+                using (var scope = _provider.CreateAsyncScope())
+                using (var _context = scope.ServiceProvider.GetService<OracleDbContext>())
                 {
+                    if (_context == null)
+                    {
+                        throw new Exception("Lỗi kết nối cơ sở dữ liệu");
+                    }
                     // Query for TableVersion
                     var tableVersionQuery = "SELECT * FROM TableVersion WHERE ClusterId = :ClusterId";
                     var tableVersionResult = await _context.Database
@@ -280,10 +288,13 @@ namespace Orleans.Runtime.Membership
         {
             try
             {
-                var optionsBuilder = new DbContextOptionsBuilder<ClustringContext>();
-                optionsBuilder.UseOracle(_options.ConnectionString);
-                using (var _context = new ClustringContext(optionsBuilder.Options))
+                using (var scope = _provider.CreateAsyncScope())
+                using (var _context = scope.ServiceProvider.GetService<OracleDbContext>())
                 {
+                    if (_context == null)
+                    {
+                        throw new Exception("Lỗi kết nối cơ sở dữ liệu");
+                    }
                     if (updateTableVersion)
                     {
                         if (tableVersion.Version == 0 && "0".Equals(tableVersion.VersionEtag, StringComparison.Ordinal))
@@ -354,10 +365,13 @@ namespace Orleans.Runtime.Membership
             try
             {
                 TableVersion tableVersion = DefaultTableVersion;
-                var optionsBuilder = new DbContextOptionsBuilder<ClustringContext>();
-                optionsBuilder.UseOracle(_options.ConnectionString);
-                using (var _context = new ClustringContext(optionsBuilder.Options))
+                using (var scope = _provider.CreateAsyncScope())
+                using (var _context = scope.ServiceProvider.GetService<OracleDbContext>())
                 {
+                    if (_context == null)
+                    {
+                        throw new Exception("Lỗi kết nối cơ sở dữ liệu");
+                    }
                     // Lấy thông tin phiên bản bảng từ Oracle
                     var selectTableVersionQuery = "SELECT * FROM TableVersion WHERE ClusterId = :ClusterId";
                     var existingTableVersion = await _context.Database.SqlQueryRaw<TableVersionModel>(selectTableVersionQuery, new OracleParameter("ClusterId", ClusterId)).ToListAsync();
@@ -401,10 +415,13 @@ namespace Orleans.Runtime.Membership
         {
             try
             {
-                var optionsBuilder = new DbContextOptionsBuilder<ClustringContext>();
-                optionsBuilder.UseOracle(_options.ConnectionString);
-                using (var _context = new ClustringContext(optionsBuilder.Options))
+                using (var scope = _provider.CreateAsyncScope())
+                using (var _context = scope.ServiceProvider.GetService<OracleDbContext>())
                 {
+                    if (_context == null)
+                    {
+                        throw new Exception("Lỗi kết nối cơ sở dữ liệu");
+                    }
                     var deleteQuery = $"DELETE FROM {clusterId}_Members";
                     await _context.Database.ExecuteSqlRawAsync(deleteQuery);
                 }
@@ -418,12 +435,14 @@ namespace Orleans.Runtime.Membership
         {
             try
             {
-                var optionsBuilder = new DbContextOptionsBuilder<ClustringContext>();
-                optionsBuilder.UseOracle(_options.ConnectionString);
-                using (var _context = new ClustringContext(optionsBuilder.Options))
+                using (var scope = _provider.CreateAsyncScope())
+                using (var _context = scope.ServiceProvider.GetService<OracleDbContext>())
                 {
-                    var cleanupQuery = $@"  DELETE FROM {ClusterId}_Members 
-                                        WHERE  Status = :Status AND IAmAliveTime < :BeforeDate";
+                    if (_context == null)
+                    {
+                        throw new Exception("Lỗi kết nối cơ sở dữ liệu");
+                    }
+                    var cleanupQuery = $"DELETE FROM {ClusterId}_Members WHERE  Status = :Status AND IAmAliveTime < :BeforeDate";
 
                     await _context.Database.ExecuteSqlRawAsync(cleanupQuery,
                         new OracleParameter("Status", (int)SiloStatus.Dead),

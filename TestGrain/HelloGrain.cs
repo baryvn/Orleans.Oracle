@@ -1,5 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
-using Orleans.Persistence.Oracle.States;
+using Orleans.Oracle.Core;
 namespace TestGrain
 {
     public class HelloGrain : Grain, IHelloGrain

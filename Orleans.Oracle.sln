@@ -13,7 +13,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Orleans.Clustering.Oracle",
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Orleans.Persistence.Oracle", "src\Orleans.Persistence.Oracle\Orleans.Persistence.Oracle.csproj", "{85B686AF-A690-4F53-9023-3D56EEFCF196}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Orleans.Persistence.Oracle.States", "src\Orleans.Persistence.Oracle.States\Orleans.Persistence.Oracle.States.csproj", "{5878E063-2B62-4C3C-9182-B0362AF852AD}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Orleans.Oracle.Core", "src\Orleans.Oracle.Core\Orleans.Oracle.Core.csproj", "{FF1AE912-5475-4DD5-9C5D-CE8540B1A086}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Orleans.Reminders.Oracle", "src\Orleans.Reminders.Oracle\Orleans.Reminders.Oracle.csproj", "{CBC2D76B-9307-41E7-B952-EE24372F699D}"
+EndProject
+Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "docker-compose", "docker-compose.dcproj", "{CA8C350F-970D-4EF0-A3BA-B761DAF4B30C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -41,10 +45,18 @@ Global
 		{85B686AF-A690-4F53-9023-3D56EEFCF196}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{85B686AF-A690-4F53-9023-3D56EEFCF196}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{85B686AF-A690-4F53-9023-3D56EEFCF196}.Release|Any CPU.Build.0 = Release|Any CPU
-		{5878E063-2B62-4C3C-9182-B0362AF852AD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{5878E063-2B62-4C3C-9182-B0362AF852AD}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{5878E063-2B62-4C3C-9182-B0362AF852AD}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{5878E063-2B62-4C3C-9182-B0362AF852AD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FF1AE912-5475-4DD5-9C5D-CE8540B1A086}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FF1AE912-5475-4DD5-9C5D-CE8540B1A086}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FF1AE912-5475-4DD5-9C5D-CE8540B1A086}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FF1AE912-5475-4DD5-9C5D-CE8540B1A086}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CBC2D76B-9307-41E7-B952-EE24372F699D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CBC2D76B-9307-41E7-B952-EE24372F699D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CBC2D76B-9307-41E7-B952-EE24372F699D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CBC2D76B-9307-41E7-B952-EE24372F699D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CA8C350F-970D-4EF0-A3BA-B761DAF4B30C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CA8C350F-970D-4EF0-A3BA-B761DAF4B30C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CA8C350F-970D-4EF0-A3BA-B761DAF4B30C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CA8C350F-970D-4EF0-A3BA-B761DAF4B30C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

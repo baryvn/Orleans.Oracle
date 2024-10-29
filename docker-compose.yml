@@ -1,0 +1,33 @@
+services:
+  silotest:
+    image: ${DOCKER_REGISTRY-}silotest
+    build:
+      context: .
+      dockerfile: SiloTest/Dockerfile  
+    ports:
+      - "8080:8080"   
+    networks:
+      - orleans_network
+  silotest2:
+    image: ${DOCKER_REGISTRY-}silotest2
+    build:
+      context: .
+      dockerfile: SiloTest/Dockerfile
+      
+    networks:
+      - orleans_network
+
+  test.aspnet.client:
+    image: ${DOCKER_REGISTRY-}testaspnetclient
+    build:
+      context: .
+      dockerfile: Test.AspNet.Client/Dockerfile  
+    ports:
+      - "11001:11001"   
+    networks:
+      - orleans_network
+
+networks:
+  orleans_network:
+    driver: bridge
+

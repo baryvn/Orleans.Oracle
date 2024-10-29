@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\src\Orleans.Persistence.Oracle.States\Orleans.Persistence.Oracle.States.csproj" />
+    <ProjectReference Include="..\src\Orleans.Oracle.Core\Orleans.Oracle.Core.csproj" />
   </ItemGroup>
 
 </Project>

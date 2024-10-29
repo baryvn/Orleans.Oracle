@@ -1,0 +1,37 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<PackageId>Orleans.Reminders.Oracle</PackageId>
+		<Authors>BARRY</Authors>
+		<Title>Microsoft Orleans Reminder Service for Minio</Title>
+		<Description>Microsoft Orleans Reminder Service for Minio</Description>
+		<PackageProjectUrl>https://github.com/baryvn/Orleans.Minio</PackageProjectUrl>
+		<PackageIconUrl>https://raw.githubusercontent.com/baryvn/Orleans.Minio/main/bary-favicon-color.png</PackageIconUrl>
+		<PackageTags>Orleans Cloud-Computing Actor-Model Actors Distributed-Systems Minio C# .NET</PackageTags>
+		<PackageReleaseNotes></PackageReleaseNotes>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<RepositoryUrl>https://github.com/baryvn/Orleans.Minio</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<IncludeSymbols>true</IncludeSymbols>
+		<IncludeSource>true</IncludeSource>
+		<Version>8.2.0</Version>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Orleans.Reminders" Version="8.2.0" />
+		<PackageReference Include="Microsoft.Orleans.Runtime" Version="8.2.0" />
+		<PackageReference Include="Minio" Version="6.0.3" />
+		<PackageReference Include="Oracle.EntityFrameworkCore" Version="8.23.60" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\Orleans.Oracle.Core\Orleans.Oracle.Core.csproj" />
+	</ItemGroup>
+
+</Project>

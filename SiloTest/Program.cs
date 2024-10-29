@@ -1,39 +1,64 @@
-﻿using Microsoft.Extensions.Hosting;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Orleans.Configuration;
+using Orleans.Oracle.Core;
 using Orleans.Persistence.Oracle.Hosting;
+using Orleans.Reminders.Oracle;
 using System.Net;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using TestGrain;
+
+var bindAdress = string.Empty;
+
+foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces())
+{
+    if (ni.NetworkInterfaceType == NetworkInterfaceType.Ethernet &&
+        ni.OperationalStatus == OperationalStatus.Up)
+    {
+        if (!string.IsNullOrEmpty(bindAdress)) break;
+        foreach (UnicastIPAddressInformation ip in ni.GetIPProperties().UnicastAddresses)
+        {
+            if (ip.Address.AddressFamily == AddressFamily.InterNetwork)
+            {
+                bindAdress = ip.Address.ToString();
+                break;
+            }
+        }
+    }
+}
+
+
 
 IHostBuilder builder = Host.CreateDefaultBuilder(args)
     .UseOrleans(silo =>
     {
         silo.Configure<ClusterOptions>(options =>
         {
-            options.ClusterId = "DEV";
-            options.ServiceId = "DEV";
+            options.ClusterId = "ORLEANS_ORACLE_DC";
+            options.ServiceId = "ORLEANS_ORACLE";
 
         });
-        silo.UseOracleClustering(option =>
+        var conn = "Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.68.81)(PORT=31521))(CONNECT_DATA=(SID=orcl)));Persist Security Info=True;User Id=c##cskhtan;Password=cskhEcoit123";
+        silo.Services.AddDbContext<OracleDbContext>(options => options.UseOracle(conn, o =>
         {
-            option.ConnectionString = "Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=oracle19c.intemi.vn)(PORT=1521))(CONNECT_DATA=(SID=orcl)));Persist Security Info=True;User Id=c##clusterapp;Password=intemi2019";
-        });
-        silo.AddOracleGrainStorage("Test1Context", option =>
+            o.UseOracleSQLCompatibility(OracleSQLCompatibility.DatabaseVersion19);
+        }), ServiceLifetime.Scoped);
+
+        silo.UseOracleClustering();
+        silo.AddOracleGrainStorage("Storage", option =>
         {
-            option.ConnectionString = "Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=oracle19c.intemi.vn)(PORT=1521))(CONNECT_DATA=(SID=orcl)));Persist Security Info=True;User Id=c##cskh;Password=intemi2019";
             option.Tables = new List<Type> { typeof(TestModel) };
         });
-        silo.AddOracleGrainStorage("Test2Context", option =>
-        {
-            option.ConnectionString = "Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=oracle19c.intemi.vn)(PORT=1521))(CONNECT_DATA=(SID=orcl)));Persist Security Info=True;User Id=c##cskh;Password=intemi2019";
-            option.Tables = new List<Type> { typeof(TestModel) };
-        });
+        silo.UseOracleReminder();
         silo.ConfigureLogging(logging => logging.AddConsole());
 
         silo.ConfigureEndpoints(
             siloPort: 11111,
             gatewayPort: 30001,
-            advertisedIP: IPAddress.Parse("192.168.68.41"),
+            advertisedIP: IPAddress.Parse(bindAdress),
             listenOnAnyHostAddress: true
             );
 
