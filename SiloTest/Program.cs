@@ -41,7 +41,7 @@ IHostBuilder builder = Host.CreateDefaultBuilder(args)
             options.ServiceId = "ORLEANS_ORACLE";
 
         });
-        var conn = "Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.68.81)(PORT=31521))(CONNECT_DATA=(SID=orcl)));Persist Security Info=True;User Id=c##cskhtan;Password=cskhEcoit123";
+        var conn = "******************";
         silo.Services.AddDbContext<OracleDbContext>(options => options.UseOracle(conn, o =>
         {
             o.UseOracleSQLCompatibility(OracleSQLCompatibility.DatabaseVersion19);

@@ -27,7 +27,7 @@ foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces())
 
 
 var builder = WebApplication.CreateBuilder(args);
-var conn = "Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.68.81)(PORT=31521))(CONNECT_DATA=(SID=orcl)));Persist Security Info=True;User Id=c##cskhtan;Password=cskhEcoit123";
+var conn = "****************";
 builder.Services.AddDbContext<OracleDbContext>(options => options.UseOracle(conn, o =>
 {
     o.UseOracleSQLCompatibility(OracleSQLCompatibility.DatabaseVersion19);
