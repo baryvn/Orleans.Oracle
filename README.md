@@ -11,6 +11,7 @@ Nuget Packages are provided:
 - Orleans.Oracle.Core
 - Orleans.Clustering.Oracle
 - Orleans.Persistence.Oracle
+- Orleans.Reminders.Oracle
 
 ## Silo
 ```
