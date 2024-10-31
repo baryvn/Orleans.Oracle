@@ -97,7 +97,7 @@ public class OracleGrainStorage : IGrainStorage, ILifecycleParticipant<ISiloLife
     {
         try
         {
-            if (!string.IsNullOrEmpty(_connectionString))
+            if (string.IsNullOrEmpty(_connectionString))
             {
                 using (var scope = _provider.CreateAsyncScope())
                 using (var _Wcontext = scope.ServiceProvider.GetService<OracleDbContext>())
@@ -164,7 +164,7 @@ public class OracleGrainStorage : IGrainStorage, ILifecycleParticipant<ISiloLife
     {
         try
         {
-            if (!string.IsNullOrEmpty(_connectionString))
+            if (string.IsNullOrEmpty(_connectionString))
             {
                 using (var scope = _provider.CreateAsyncScope())
                 using (var _Wcontext = scope.ServiceProvider.GetService<OracleDbContext>())
