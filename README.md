@@ -132,7 +132,7 @@ public class HelloGrain : Grain, IHelloGrain
     private readonly ILogger _logger;
 
     private readonly IPersistentState<BaseState<TestModel>> _test;
-    public HelloGrain(ILogger<HelloGrain> logger, [PersistentState("test", "Test1Context")] IPersistentState<BaseState<TestModel>> test)
+    public HelloGrain(ILogger<HelloGrain> logger, [PersistentState("test", "Storage")] IPersistentState<BaseState<TestModel>> test)
     {
         _logger = logger;
         _test = test;
