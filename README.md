@@ -8,9 +8,9 @@ is a package that use Oracle as a backend for Orleans providers like Cluster Mem
 
 # Installation 
 Nuget Packages are provided:
-- Orleans.Persistence.Oracle
-- Orleans.Persistence.Oracle.State
+- Orleans.Oracle.Core
 - Orleans.Clustering.Oracle
+- Orleans.Persistence.Oracle
 
 ## Silo
 ```
@@ -20,30 +20,28 @@ IHostBuilder builder = Host.CreateDefaultBuilder(args)
     {
         silo.Configure<ClusterOptions>(options =>
         {
-            options.ClusterId = "DEV";
-            options.ServiceId = "DEV";
+            options.ClusterId = "ORLEANS_ORACLE_DC";
+            options.ServiceId = "ORLEANS_ORACLE";
 
         });
-        silo.UseOracleClustering(option =>
+        var conn = "******************";
+        silo.Services.AddDbContext<OracleDbContext>(options => options.UseOracle(conn, o =>
         {
-            option.ConnectionString = "your-connection-string";
-        });
-        silo.AddOracleGrainStorage<Test1Context>("Test1Context", option =>
+            o.UseOracleSQLCompatibility(OracleSQLCompatibility.DatabaseVersion19);
+        }), ServiceLifetime.Scoped);
+
+        silo.UseOracleClustering();
+        silo.AddOracleGrainStorage("Storage", option =>
         {
-            option.ConnectionString = "your-connection-string";
             option.Tables = new List<Type> { typeof(TestModel) };
         });
-        silo.AddOracleGrainStorage<Test2Context>("Test2Context", option =>
-        {
-            option.ConnectionString = "your-connection-string";
-            option.Tables = new List<Type> { typeof(TestModel) };
-        });
+        silo.UseOracleReminder();
         silo.ConfigureLogging(logging => logging.AddConsole());
 
         silo.ConfigureEndpoints(
             siloPort: 11111,
             gatewayPort: 30001,
-            advertisedIP: IPAddress.Parse("192.168.68.41"),
+            advertisedIP: IPAddress.Parse(bindAdress),
             listenOnAnyHostAddress: true
             );
 
@@ -61,22 +59,26 @@ await host.RunAsync();
 ```
 ## Client 
 ```
+
 var builder = WebApplication.CreateBuilder(args);
+var conn = "****************";
+builder.Services.AddDbContext<OracleDbContext>(options => options.UseOracle(conn, o =>
+{
+    o.UseOracleSQLCompatibility(OracleSQLCompatibility.DatabaseVersion19);
+}), ServiceLifetime.Scoped);
+
 builder.Host.UseOrleansClient(client =>
 {
     client.Configure<ClusterOptions>(options =>
     {
-        options.ClusterId = "DEV";
-        options.ServiceId = "DEV";
-
+        options.ClusterId = "ORLEANS_ORACLE_DC";
+        options.ServiceId = "ORLEANS_ORACLE";
     });
-    client.UseOracleClustering(option =>
-    {
-        option.ConnectionString = "";
-    });
+    client.UseOracleClustering();
 });
 
 ```
+
 
 ## Use Persistence
 - BaseEntity is require 
@@ -92,7 +94,6 @@ public class BaseEntity
     [Id(0)]
     [Key]
     public string ID { get; set; } = Guid.NewGuid().ToString();
-
 }
 ```
 ### Table
@@ -101,6 +102,11 @@ public class BaseEntity
 [GenerateSerializer]
 public class TestModel : BaseEntity
 {
+    [Description("VARCHAR2(128)")]
+    [Id(1)]
+    [GroupKey]
+    public string FORENKEY { get; set; } = Guid.NewGuid().ToString();
+
     [Description("VARCHAR2(50)")]
     [Id(0)]
     public string MYCOLUM { get; set; }
