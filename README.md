@@ -95,8 +95,8 @@ builder.Host.UseOrleansClient(client =>
 ## Use Persistence
 - BaseEntity is require 
 - property name is uppercase 
-- [Description("TEST_TABLE")] is table name
--  [Description("VARCHAR2(50)")] is oracle data type
+- [Description("TEST_TABLE")] of class is table name
+-  [Description("VARCHAR2(50)")] of properties is oracle data type
 ### BaseEntity
 ```
 [GenerateSerializer]
