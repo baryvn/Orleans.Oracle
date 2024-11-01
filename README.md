@@ -25,18 +25,26 @@ IHostBuilder builder = Host.CreateDefaultBuilder(args)
             options.ServiceId = "ORLEANS_ORACLE";
 
         });
+
+        // Add Oracle DbContext, this db context is used in, Clustering,GrainStorage and Reminder
         var conn = "******************";
         silo.Services.AddDbContext<OracleDbContext>(options => options.UseOracle(conn, o =>
         {
             o.UseOracleSQLCompatibility(OracleSQLCompatibility.DatabaseVersion19);
-        }), ServiceLifetime.Scoped);
-
+        }), ServiceLifetime.Scoped);]
+        // Add clustering
         silo.UseOracleClustering();
+
+        // Add Persitend storage
         silo.AddOracleGrainStorage("Storage", option =>
         {
             option.Tables = new List<Type> { typeof(TestModel) };
         });
+
+        // Add Reminder
         silo.UseOracleReminder();
+
+        
         silo.ConfigureLogging(logging => logging.AddConsole());
 
         silo.ConfigureEndpoints(
