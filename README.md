@@ -151,9 +151,14 @@ public class HelloGrain : Grain, IHelloGrain
         _test = test;
     }
 
+    public override Task OnActivateAsync(CancellationToken cancellationToken)
+    {
+        return Task.WhenAll(_test.ReadStateAsync());
+    }
+
+
     public async Task<string> GetCount()
     {
-        await _test.ReadStateAsync();
         return _test.State.Items.Count.ToString();
     }
 
