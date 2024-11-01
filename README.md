@@ -139,20 +139,24 @@ public interface IHelloGrain : IGrainWithGuidKey
 ```
 ### impliment grain
 ```
-using Orleans.Persistence.Oracle.States;
-public class HelloGrain : Grain, IHelloGrain,IRemindable
+using Microsoft.Extensions.Logging;
+using Orleans.Oracle.Core;
+using Orleans.Timers;
+public class HelloGrain : Grain, IHelloGrain, IRemindable
 {
     private readonly ILogger _logger;
 
+    private readonly IReminderRegistry _reminderRegistry;
     private readonly IPersistentState<BaseState<TestModel>> _test;
 
     private IGrainReminder? _rTest;
     private bool _taskDone = false;
 
-    public HelloGrain(ILogger<HelloGrain> logger, [PersistentState("test", "Storage")] IPersistentState<BaseState<TestModel>> test)
+    public HelloGrain(ILogger<HelloGrain> logger, IReminderRegistry reminderRegistry, [PersistentState("test", "Storage")] IPersistentState<BaseState<TestModel>> test)
     {
         _logger = logger;
         _test = test;
+        _reminderRegistry = reminderRegistry;
     }
 
     public override Task OnActivateAsync(CancellationToken cancellationToken)
@@ -169,17 +173,17 @@ public class HelloGrain : Grain, IHelloGrain,IRemindable
     public async Task AddItem(TestModel model)
     {
         // items is a list
-        _test.State.Items.Add(model);        
+        _test.State.Items.Add(model);
         await _test.WriteStateAsync();
     }
     public async Task ReceiveReminder(string reminderName, TickStatus status)
     {
         try
         {
-            if(reminderName == "TEST_REMIDER")
+            if (reminderName == "TEST_REMIDER")
             {
                 // Excute task
-                if(_taskDone)
+                if (_taskDone)
                 {
                     if (_rTest == null)
                     {
@@ -199,11 +203,11 @@ public class HelloGrain : Grain, IHelloGrain,IRemindable
     {
         if (_rTest == null)
         {
-            _rTest = await _reminderRegistry.GetReminder(GrainContext.GrainId,"TEST_REMIDER");
+            _rTest = await _reminderRegistry.GetReminder(GrainContext.GrainId, "TEST_REMIDER");
         }
         if (_rTest == null)
         {
-            _rEnrichment = await _reminderRegistry.RegisterOrUpdateReminder(
+            _rTest = await _reminderRegistry.RegisterOrUpdateReminder(
             callingGrainId: GrainContext.GrainId,
             reminderName: "TEST_REMIDER",
             dueTime: TimeSpan.Zero,
