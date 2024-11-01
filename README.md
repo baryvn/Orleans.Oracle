@@ -146,7 +146,8 @@ public class HelloGrain : Grain, IHelloGrain
 
     public async Task AddItem(TestModel model)
     {
-        _test.State.Items = [model,];
+        // items is a list
+        _test.State.Items.Add(model);        
         await _test.WriteStateAsync();
     }
 }
