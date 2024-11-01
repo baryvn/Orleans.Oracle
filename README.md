@@ -97,6 +97,8 @@ builder.Host.UseOrleansClient(client =>
 - property name is uppercase 
 - [Description("TEST_TABLE")] of class is table name
 -  [Description("VARCHAR2(50)")] of properties is oracle data type
+-  [Key] is GrainKey type GuidKey
+-  [Key] and [GroupKey] of properties is set this properties is primarykey in oracle
 ### BaseEntity
 ```
 [GenerateSerializer]
