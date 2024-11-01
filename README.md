@@ -13,6 +13,9 @@ Nuget Packages are provided:
 - Orleans.Persistence.Oracle
 - Orleans.Reminders.Oracle
 
+## Note
+>In development environment sometimes you will have to delete member in cluster's Member table. the reason for this issue is when you suddenly stop the application while running test or debug orleans can't update the state down to member table properly and will show error when starting cluster
+
 ## Silo
 ```
 
