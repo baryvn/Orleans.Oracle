@@ -92,7 +92,7 @@ builder.Host.UseOrleansClient(client =>
 ```
 
 
-## Use Persistence
+## Define Persistence
 - BaseEntity is require 
 - property name is uppercase 
 - [Description("TEST_TABLE")] of class is table name
@@ -126,7 +126,7 @@ public class TestModel : BaseEntity
     public string MYCOLUM { get; set; }
 }
 ```
-
+## Use Persistence & Remider
 ### interface grain
 ```
 public interface IHelloGrain : IGrainWithGuidKey
@@ -140,11 +140,15 @@ public interface IHelloGrain : IGrainWithGuidKey
 ### impliment grain
 ```
 using Orleans.Persistence.Oracle.States;
-public class HelloGrain : Grain, IHelloGrain
+public class HelloGrain : Grain, IHelloGrain,IRemindable
 {
     private readonly ILogger _logger;
 
     private readonly IPersistentState<BaseState<TestModel>> _test;
+
+    private IGrainReminder? _rTest;
+    private bool _taskDone = false;
+
     public HelloGrain(ILogger<HelloGrain> logger, [PersistentState("test", "Storage")] IPersistentState<BaseState<TestModel>> test)
     {
         _logger = logger;
@@ -168,7 +172,48 @@ public class HelloGrain : Grain, IHelloGrain
         _test.State.Items.Add(model);        
         await _test.WriteStateAsync();
     }
+    public async Task ReceiveReminder(string reminderName, TickStatus status)
+    {
+        try
+        {
+            if(reminderName == "TEST_REMIDER")
+            {
+                // Excute task
+                if(_taskDone)
+                {
+                    if (_rTest == null)
+                    {
+                        _rTest = await _reminderRegistry.GetReminder(GrainContext.GrainId, "TEST_REMIDER");
+                    }
+                    if (_rTest != null)
+                        await _reminderRegistry.UnregisterReminder(GrainContext.GrainId, _rTest);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            //log
+        }
+    }
+    public async Task RegisterRemider()
+    {
+        if (_rTest == null)
+        {
+            _rTest = await _reminderRegistry.GetReminder(GrainContext.GrainId,"TEST_REMIDER");
+        }
+        if (_rTest == null)
+        {
+            _rEnrichment = await _reminderRegistry.RegisterOrUpdateReminder(
+            callingGrainId: GrainContext.GrainId,
+            reminderName: "TEST_REMIDER",
+            dueTime: TimeSpan.Zero,
+            period: TimeSpan.FromMinutes(1));
+        }
+    }
+
 }
 
 ```
+
+
 
