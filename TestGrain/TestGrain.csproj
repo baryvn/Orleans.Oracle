@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\src\Orleans.Oracle.Core\Orleans.Oracle.Core.csproj" />
+    <ProjectReference Include="..\src\Orleans.Reminders.Oracle\Orleans.Reminders.Oracle.csproj" />
   </ItemGroup>
 
 </Project>
