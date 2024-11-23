@@ -5,5 +5,6 @@
         Task<string> GetCount();
 
         Task AddItem(TestModel model);
+        Task RegisterRemider();
     }
 }
